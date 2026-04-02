@@ -187,21 +187,55 @@ After all sections are implemented:
 1. Run the full test suite
 2. Check for any remaining TODOs/FIXMEs across the codebase
 3. Verify all phases in impl-task-plan.md are marked complete
-4. Print summary:
-
-```
-Implementation Complete
-
-Sections: {total}/{total} done
-Tests: {pass/fail}
-Files modified: {list}
-
-Next steps:
-- Review the changes
-- Commit when satisfied
-```
-
+4. Write the implementation summary (see below)
 5. Remove the active marker: delete `~/.claude/.deep-implement-active`
+
+---
+
+## Implementation Summary (Required Before Exit)
+
+**The Stop hook enforces this.** You cannot exit without writing `<planning_dir>/impl-summary.md`.
+
+If all sections are complete, the summary must contain:
+
+```markdown
+# Implementation Summary
+
+## What Was Implemented
+{For each section, 1-2 sentences on what was built}
+
+## Key Technical Decisions
+{Decisions made during implementation and why}
+
+## Known Issues / Remaining TODOs
+{Any issues discovered, tech debt taken on, or items deferred}
+
+## Test Results
+{Pass/fail counts from the final test run}
+
+## Files Created or Modified
+{List of files touched, grouped by section}
+```
+
+If exiting mid-implementation (incomplete sections), the summary must contain:
+
+```markdown
+# Session Summary (Incomplete)
+
+## What Was Completed This Session
+{Sections finished and what they contain}
+
+## What Remains
+{Incomplete sections and any blockers}
+
+## Errors Encountered
+{Errors hit and how they were resolved or worked around}
+
+## Where to Pick Up
+{Exact section and step to resume from next session}
+```
+
+The Stop hook checks for `impl-summary.md` — once it exists, exit is allowed.
 
 ---
 
@@ -215,5 +249,5 @@ The tracking files on disk are the source of truth. After context loss:
 4. Read `impl-findings.md` for accumulated technical decisions
 5. Resume from the first incomplete section
 
-The PreToolUse hook automatically injects the first 30 lines of impl-progress.md
-into context before every Write/Edit/Bash call, keeping goals attended.
+The PostToolUse hook nudges progress updates after every file change.
+The Stop hook requires an implementation summary before allowing exit.
