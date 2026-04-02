@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+*.egg-info/
+dist/
+build/
+.eggs/
+uv.lock
+.agents/

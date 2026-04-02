@@ -1,0 +1,29 @@
+[project]
+name = "deep-plan"
+version = "0.3.2"
+description = "Claude Code deep planning plugin"
+requires-python = ">=3.11"
+dependencies = [
+    "google-genai>=1.0.0",
+    "openai>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-mock>=3.12.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["scripts*", "tests*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+pythonpath = ["."]
+markers = [
+    "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
+]

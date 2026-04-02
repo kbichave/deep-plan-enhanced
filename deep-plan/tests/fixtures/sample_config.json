@@ -1,0 +1,18 @@
+{
+  "context": {
+    "check_enabled": true
+  },
+  "external_review": {
+    "alert_if_missing": true,
+    "feedback_iterations": 1
+  },
+  "models": {
+    "gemini": "gemini-2.0-flash",
+    "chatgpt": "gpt-4o"
+  },
+  "llm_client": {
+    "timeout_seconds": 120,
+    "max_retries": 3,
+    "retry_codes": [429, 500, 503]
+  }
+}
