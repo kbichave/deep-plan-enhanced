@@ -1,0 +1,12 @@
+{
+  "name": "deep-plan-enhanced",
+  "description": "Plan and implement complex features with AI-assisted research, multi-LLM review, TDD sections, and disciplined execution",
+  "version": "1.0.0",
+  "author": {
+    "name": "kbichave",
+    "url": "https://github.com/kbichave"
+  },
+  "repository": "https://github.com/kbichave/deep-plan-enhanced",
+  "license": "MIT",
+  "keywords": ["planning", "implementation", "tdd", "architecture", "llm-review", "execution"]
+}

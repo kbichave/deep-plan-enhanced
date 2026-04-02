@@ -1,0 +1,25 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "kbichave-plugins",
+  "description": "Claude Code plugins by kbichave",
+  "version": "1.0.0",
+  "owner": {
+    "name": "kbichave",
+    "url": "https://github.com/kbichave"
+  },
+  "plugins": [
+    {
+      "name": "deep-plan-enhanced",
+      "description": "Plan and implement complex features with AI-assisted research, multi-LLM review, TDD sections, and disciplined execution",
+      "version": "1.0.0",
+      "author": {
+        "name": "kbichave",
+        "url": "https://github.com/kbichave"
+      },
+      "source": "./",
+      "category": "development",
+      "homepage": "https://github.com/kbichave/deep-plan-enhanced",
+      "tags": ["planning", "implementation", "tdd", "architecture", "llm-review", "execution"]
+    }
+  ]
+}
