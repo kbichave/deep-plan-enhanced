@@ -104,13 +104,19 @@ Create three tracking files in the planning directory (skip if they already exis
 ## Session Log
 ```
 
-### 5. Write Active Marker
+### 5. Write Session Marker
 
-Write the planning directory path to `~/.claude/.deep-implement-active`:
+Write the planning directory path to a **session-specific** marker file:
 ```python
-Path.home() / ".claude" / ".deep-implement-active"
+sessions_dir = Path.home() / ".claude" / ".deep-implement-sessions"
+sessions_dir.mkdir(exist_ok=True)
+marker = sessions_dir / f"{DEEP_SESSION_ID}.marker"
+marker.write_text(str(planning_dir))
 ```
-This enables the discipline hooks (PreToolUse, PostToolUse, Stop) to find the tracking files.
+
+Use the `DEEP_SESSION_ID` from the SessionStart hook context. This creates a per-session marker so parallel deep-implement sessions don't overwrite each other.
+
+The discipline hooks (PostToolUse, Stop) use `DEEP_SESSION_ID` to find the correct marker.
 
 ### 6. Check for Resume
 
@@ -188,7 +194,7 @@ After all sections are implemented:
 2. Check for any remaining TODOs/FIXMEs across the codebase
 3. Verify all phases in impl-task-plan.md are marked complete
 4. Write the implementation summary (see below)
-5. Remove the active marker: delete `~/.claude/.deep-implement-active`
+5. Remove the session marker: delete `~/.claude/.deep-implement-sessions/{DEEP_SESSION_ID}.marker`
 
 ---
 
@@ -243,7 +249,7 @@ The Stop hook checks for `impl-summary.md` — once it exists, exit is allowed.
 
 The tracking files on disk are the source of truth. After context loss:
 
-1. Read `~/.claude/.deep-implement-active` to find the planning directory
+1. Read `~/.claude/.deep-implement-sessions/{DEEP_SESSION_ID}.marker` to find the planning directory
 2. Read `impl-progress.md` to see which sections are done
 3. Read `impl-task-plan.md` for the current phase status
 4. Read `impl-findings.md` for accumulated technical decisions

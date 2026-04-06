@@ -1,19 +1,45 @@
 #!/usr/bin/env python3
-"""Stop hook for deep-implement: Verify sections and request exit summary."""
+"""Stop hook for deep-implement: Verify sections and request exit summary.
+
+Session-aware: uses DEEP_SESSION_ID env var to find the correct session marker
+in ~/.claude/.deep-implement-sessions/. Falls back to most recently modified
+marker if env var is unavailable.
+"""
 
 import json
+import os
 import re
 import sys
 from pathlib import Path
 
 
-def main() -> int:
-    marker = Path.home() / ".claude" / ".deep-implement-active"
-    if not marker.exists():
-        return 0
+def find_active_dir() -> Path | None:
+    """Find the active planning directory for the current session."""
+    sessions_dir = Path.home() / ".claude" / ".deep-implement-sessions"
+    if not sessions_dir.is_dir():
+        return None
 
-    active_dir = Path(marker.read_text().strip())
-    if not active_dir.is_dir():
+    # Try session-specific marker first
+    session_id = os.environ.get("DEEP_SESSION_ID")
+    if session_id:
+        marker = sessions_dir / f"{session_id}.marker"
+        if marker.exists():
+            active_dir = Path(marker.read_text().strip())
+            return active_dir if active_dir.is_dir() else None
+
+    # Fallback: most recently modified marker
+    markers = sorted(sessions_dir.glob("*.marker"), key=lambda p: p.stat().st_mtime, reverse=True)
+    for marker in markers:
+        active_dir = Path(marker.read_text().strip())
+        if active_dir.is_dir():
+            return active_dir
+
+    return None
+
+
+def main() -> int:
+    active_dir = find_active_dir()
+    if not active_dir:
         return 0
 
     progress_file = active_dir / "impl-progress.md"
@@ -34,7 +60,6 @@ def main() -> int:
     has_summary = summary_file.exists() and summary_file.stat().st_size > 0
 
     if has_summary:
-        # Summary written, allow clean exit
         return 0
 
     if completed >= total:
