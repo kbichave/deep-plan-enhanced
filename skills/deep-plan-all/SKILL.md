@@ -44,7 +44,7 @@ Usage: /deep-plan-all @path/to/discovery-audit/phases/
 uv run ${plugin_root}/scripts/checks/setup-session.py \
   --file "<phases_dir>" --plugin-root "${plugin_root}" \
   --review-mode "${review_mode}" --session-id "${DEEP_SESSION_ID}" \
-  --workflow "plan"
+  --workflow "plan-all"
 ```
 
 The setup script initializes `.deepstate/` and creates the phase workflow hierarchy via `create_plan_all_workflow()`.
