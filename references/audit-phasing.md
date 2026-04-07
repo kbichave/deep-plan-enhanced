@@ -1,6 +1,6 @@
 # Audit Phasing Protocol
 
-Defines how deep-audit step 10 generates implementation phases. Phases are 100% dynamic — names, count, ordering, and grouping all derived from the audit findings.
+Defines how deep-discovery step 10 generates implementation phases. Phases are 100% dynamic — names, count, ordering, and grouping all derived from the audit findings.
 
 ## Phase Discovery Algorithm
 

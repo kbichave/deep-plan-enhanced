@@ -1,6 +1,6 @@
 # Audit Interview Protocol
 
-Defines the stakeholder interview for deep-audit step 7. This is a CONVERSATION that expands the user's thinking, not a questionnaire that extracts answers.
+Defines the stakeholder interview for deep-discovery step 7. This is a CONVERSATION that expands the user's thinking, not a questionnaire that extracts answers.
 
 ## Core Philosophy
 

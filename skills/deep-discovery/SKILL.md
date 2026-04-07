@@ -1,11 +1,11 @@
 ---
-name: deep-audit
-description: General-purpose system audit and product planning. Works on existing codebases (audit + roadmap) or greenfield projects (ecosystem research + architecture). Produces focused per-topic files, dynamic phase specs, and granular build-vs-buy analysis. Researches deeply before asking questions — including competitors, packages, and academic papers. Use when you need to understand a system, plan a product, or create a migration roadmap.
+name: deep-discovery
+description: General-purpose system discovery and product planning. Works on existing codebases (audit + roadmap) or greenfield projects (ecosystem research + architecture). Produces focused per-topic files, dynamic phase specs, and granular build-vs-buy analysis. Researches deeply before asking questions — including competitors, packages, and academic papers. Use when you need to understand a system, plan a product, or create a migration roadmap.
 license: MIT
 compatibility: Requires uv (Python 3.11+), optional Gemini or OpenAI API key for external review
 ---
 
-# Deep Audit Skill
+# Deep Discovery Skill
 
 General-purpose system audit and product planning tool.
 
@@ -24,7 +24,7 @@ General-purpose system audit and product planning tool.
 - Research goes as deep as arxiv papers when the domain warrants it
 
 ```
-/deep-audit     → Understand + Plan (produces audit directory)
+/deep-discovery     → Understand + Plan (produces audit directory)
 /deep-plan      → Detail one piece (produces implementation sections)
 /deep-implement → Build it (writes code)
 ```
@@ -43,7 +43,7 @@ Handle errors identically to deep-plan step 1-2. Store `plugin_root` and `review
 
 ### 2. Detect Audit Mode
 
-**If invoked with @file** (e.g., `/deep-audit @planning/product-vision.md`):
+**If invoked with @file** (e.g., `/deep-discovery @planning/product-vision.md`):
 - Read the file — it's the audit brief (vision, constraints, what to investigate)
 - Check if the current working directory has a codebase (look for pyproject.toml, package.json, Cargo.toml, go.mod, Makefile, src/, or any code files)
 - If codebase exists: **Existing System Mode** — audit the code + apply the brief
@@ -57,7 +57,7 @@ Handle errors identically to deep-plan step 1-2. Store `plugin_root` and `review
 Print mode:
 ```
 ═══════════════════════════════════════════════════════════════
-DEEP-AUDIT: System Audit & Product Planning
+DEEP-DISCOVERY: System Audit & Product Planning
 ═══════════════════════════════════════════════════════════════
 Mode: {Existing System | Greenfield | Hybrid}
 Target: {cwd or brief file description}
@@ -426,7 +426,7 @@ Generate `{audit_dir}/README.md` — index of all generated files with one-line 
 Print:
 ```
 ═══════════════════════════════════════════════════════════════
-DEEP-AUDIT: Complete
+DEEP-DISCOVERY: Complete
 ═══════════════════════════════════════════════════════════════
 
 Audit Directory: {audit_dir}/

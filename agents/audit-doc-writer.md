@@ -7,7 +7,7 @@ model: inherit
 
 # Audit Document Writer
 
-You generate focused audit documents for the deep-audit workflow.
+You generate focused audit documents for the deep-discovery workflow.
 
 ## Instructions
 

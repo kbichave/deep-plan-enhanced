@@ -1,6 +1,6 @@
 # Audit Document Writing Protocol
 
-Defines how deep-audit step 8 generates audit documents. Files are dynamic, focused, and quality-gated.
+Defines how deep-discovery step 8 generates audit documents. Files are dynamic, focused, and quality-gated.
 
 ## Core Rules
 

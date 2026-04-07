@@ -565,7 +565,7 @@ def main():
             result = {
                 "success": False,
                 "error": f"Expected a spec file (.md), got a directory: {file_path}. "
-                         f"Use /deep-plan @path/to/spec.md or /deep-audit for directory-based workflows.",
+                         f"Use /deep-plan @path/to/spec.md or /deep-discovery for directory-based workflows.",
                 "mode": "error",
             }
             print(json.dumps(result, indent=2))

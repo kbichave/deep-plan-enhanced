@@ -1,6 +1,6 @@
 # Build vs Buy Evaluation Protocol
 
-Defines how deep-audit step 9 evaluates build-vs-buy for each capability. Every recommendation must be backed by real package research.
+Defines how deep-discovery step 9 evaluates build-vs-buy for each capability. Every recommendation must be backed by real package research.
 
 ## Core Principle
 

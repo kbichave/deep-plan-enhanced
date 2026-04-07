@@ -1,8 +1,8 @@
 # deep-plan-enhanced
 
-A Claude Code plugin with three skills for auditing, planning, and implementing complex systems.
+A Claude Code plugin with three skills for discovering, planning, and implementing complex systems.
 
-**`/deep-audit`** audits an existing system or researches a greenfield project. Produces a comprehensive audit directory with focused per-topic files, dynamic phase specs, granular build-vs-buy analysis, and a migration roadmap. Researches competitors, packages, and academic papers before asking questions.
+**`/deep-discovery`** deeply researches an existing system or greenfield project. Produces a comprehensive discovery directory with focused per-topic files, dynamic phase specs, granular build-vs-buy analysis, and a migration roadmap. Researches competitors, packages, and academic papers before asking questions.
 
 **`/deep-plan`** takes one piece of the audit roadmap and creates a detailed implementation blueprint through research, stakeholder interviews, multi-LLM review, and TDD-oriented section splitting.
 
@@ -35,8 +35,8 @@ cd ~/.claude/plugins/deep-plan-enhanced && uv sync
 ## The Workflow
 
 ```
-/deep-audit                    Scan -> Research -> Interview -> Audit Docs -> Phase Specs -> Build-vs-Buy
-                               (produces the system audit + migration roadmap)
+/deep-discovery                    Scan -> Research -> Interview -> Audit Docs -> Phase Specs -> Build-vs-Buy
+                               (produces the system discovery + migration roadmap)
 
 /deep-plan @phase-spec.md     Research -> Interview -> Plan -> Review -> TDD -> Sections
                                (produces the implementation blueprint for one phase)
@@ -45,13 +45,13 @@ cd ~/.claude/plugins/deep-plan-enhanced && uv sync
                                (writes the code, tracks progress, enforces quality)
 ```
 
-The three skills form a complete pipeline: **audit → plan → implement**.
+The three skills form a complete pipeline: **discover → plan → implement**.
 
 ## What's Inside
 
-### /deep-audit
+### /deep-discovery
 
-A general-purpose system audit that works on any project — existing codebase, greenfield, or hybrid.
+A general-purpose system discovery that works on any project — existing codebase, greenfield, or hybrid.
 
 | Step | What Happens |
 |------|-------------|
