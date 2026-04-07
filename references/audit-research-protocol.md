@@ -194,6 +194,17 @@ prompt: |
 - Include wave metadata on every section
 - Accumulate open questions in a dedicated section
 
+**CRITICAL — Do NOT idle while agents run.** Background agents notify you when
+they complete, but you MUST keep working in the foreground while waiting:
+- Read prior audit files, existing code, or documentation
+- Update progress.md with current status
+- Prepare the reflection template
+- Draft gap categories based on Wave 0 findings
+- Read reference files needed for upcoming steps
+
+If you have nothing productive to do, tell the user what you're waiting for and
+what happens next — do NOT silently stop generating.
+
 ---
 
 ## Reflection Point (Between Waves)

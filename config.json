@@ -15,9 +15,9 @@
     "_comment_iterations": "feedback_iterations: number of review/integrate cycles (0 = skip external review entirely). More than 1 feedback iteration is not yet implemented"
   },
   "models": {
-    "gemini": "gemini-3-pro-preview",
-    "chatgpt": "gpt-5.2",
-    "_comment": "Models used for external plan review"
+    "gemini": "gemini-2.5-pro",
+    "chatgpt": "gpt-4.1",
+    "_comment": "Models for external plan review. Alternatives — Gemini: gemini-3.1-pro-preview, gemini-2.5-flash, gemini-3-flash-preview | OpenAI: gpt-5.4-mini, gpt-5.4, o4-mini, gpt-4o"
   },
   "llm_client": {
     "timeout_seconds": 120,

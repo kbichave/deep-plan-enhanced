@@ -78,7 +78,7 @@ mkdir -p "{planning_dir}/reviews"
 ```markdown
 # Opus Review
 
-**Model:** claude-opus-4
+**Model:** claude-opus-4-6
 **Generated:** {ISO timestamp}
 
 ---

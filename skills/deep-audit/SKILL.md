@@ -206,6 +206,8 @@ Launch N parallel agents. Each agent receives:
 
 **CRITICAL: 2-Action Rule** — update findings.md after every 2 agent returns, not after all complete.
 
+**CRITICAL: Do NOT idle while background agents run.** Keep working in the foreground — read prior files, update progress.md, prepare reflection template, draft gap categories. If nothing productive remains, tell the user what you're waiting for and what happens next. Never silently stop generating.
+
 **CRITICAL: Current Year** — all web searches use current year from system context.
 
 #### Reflection Point: What Remains Unknown?

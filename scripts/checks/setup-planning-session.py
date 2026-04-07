@@ -550,28 +550,30 @@ def main():
             "warnings": list(validation.warnings) if validation.warnings else []
         }
 
-    # Spec file must exist (it's the input to the planning workflow)
-    if not file_path.exists():
-        result = {
-            "success": False,
-            "error": f"Spec file not found: {file_path}",
-            "mode": "error",
-        }
-        print(json.dumps(result, indent=2))
-        return 1
+    is_audit = args.workflow == "audit"
 
-    # Check if it's a directory (not allowed)
+    # For audit workflow, --file can be a directory (the codebase root)
+    # For plan workflow, --file must be a .md spec file
     if file_path.is_dir():
+        if not is_audit:
+            result = {
+                "success": False,
+                "error": f"Expected a spec file (.md), got a directory: {file_path}. "
+                         f"Use /deep-plan @path/to/spec.md or /deep-audit for directory-based workflows.",
+                "mode": "error",
+            }
+            print(json.dumps(result, indent=2))
+            return 1
+        # Audit mode with directory: planning dir resolution handles subdir creation below
+    elif not file_path.exists():
         result = {
             "success": False,
-            "error": f"Expected a spec file, got a directory: {file_path}",
+            "error": f"File not found: {file_path}",
             "mode": "error",
         }
         print(json.dumps(result, indent=2))
         return 1
-
-    # Spec file must have content
-    if file_path.stat().st_size == 0:
+    elif file_path.stat().st_size == 0:
         result = {
             "success": False,
             "error": f"Spec file is empty: {file_path}",
@@ -586,7 +588,12 @@ def main():
 
     # Resolve planning dir with session isolation
     # Each session gets its own subdirectory to prevent concurrent overwrites
-    spec_parent = file_path.parent
+    if file_path.is_dir():
+        # Audit mode with directory target: planning files go under <dir>/audit/
+        spec_parent = file_path / "audit"
+        spec_parent.mkdir(parents=True, exist_ok=True)
+    else:
+        spec_parent = file_path.parent
     planning_dir = resolve_planning_dir(spec_parent, context.task_list_id)
 
     # Check for conflict BEFORE doing any work (if CLAUDE_CODE_TASK_LIST_ID is set)
@@ -638,8 +645,6 @@ def main():
     else:
         # Resume - use stored value if present, otherwise CLI arg
         review_mode = session_config.get("review_mode", args.review_mode)
-
-    is_audit = args.workflow == "audit"
 
     # Scan for existing files (audit vs plan have different file sets)
     if is_audit:

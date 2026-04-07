@@ -56,30 +56,33 @@ Then run: `bash <found_path>`
 {
   "valid": true,
   "errors": [],
-  "warnings": [],
+  "warnings": ["OpenAI: OPENAI_API_KEY not set"],
   "gemini_auth": "api_key",
   "openai_auth": true,
+  "review_available": "full",
   "plugin_root": "/path/to/plugin"
 }
 ```
 
 **Store `plugin_root`** from the JSON output - it's used throughout the workflow.
 
-### 2. Handle Environment Errors
+### 2. Handle Environment Results
 
-If `valid == false`:
-- Show the errors to the user
+**If `valid == false`** (fatal error — uv not installed, plugin root not found):
+- Show errors to the user and stop the workflow. These must be fixed before proceeding.
 
-**If errors are critical** (uv not installed, plugin root not found):
-- Stop the workflow. User must fix these before proceeding.
+**If `valid == true`**, check `review_available`:
 
-**If errors are ONLY about missing LLM credentials** (gemini_auth is null AND openai_auth is false):
+- `"full"` → Both Gemini and OpenAI configured → `review_mode = "external_llm"`
+- `"gemini_only"` or `"openai_only"` → Partial LLM config → `review_mode = "external_llm"` (uses whichever is available)
+- `"none"` → No external LLMs → Ask the user:
+
 ```
 AskUserQuestion:
-  question: "No external LLMs configured. How should plan review be handled?"
+  question: "No external LLMs configured (see warnings). How should plan review be handled?"
   options:
     - label: "Use Claude Opus for review (Recommended)"
-      description: "Launch an Opus subagent to review the plan"
+      description: "Launch an Opus subagent to review the plan — no API keys needed"
     - label: "Exit to configure LLMs"
       description: "Stop to set up Gemini/OpenAI credentials"
     - label: "Skip external review"
@@ -89,13 +92,15 @@ AskUserQuestion:
 **Store the choice as `review_mode`:**
 - "Use Claude Opus" → `review_mode = "opus_subagent"`
 - "Skip external review" → `review_mode = "skip"`
-- Default (LLMs available) → `review_mode = "external_llm"`
+- "Exit to configure LLMs" → Stop workflow
 
+If there are warnings, show them briefly so the user knows what's missing:
 ```
 Environment validated:
   Gemini: {gemini_auth or "not configured"}
   OpenAI: {openai_auth ? "configured" : "not configured"}
   Review mode: {review_mode}
+  {warnings, if any}
 ```
 
 ### 3. Validate Spec File Input

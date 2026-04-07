@@ -16,11 +16,15 @@
 # 4. Test actual client construction (calls test_llm_clients.py)
 #
 # Exit codes:
-# 0 = all checks pass (may have warnings)
-# 1 = missing/stale Gemini auth (when alert_if_missing=true)
-# 2 = missing OpenAI key (when alert_if_missing=true)
-# 3 = could not locate plugin root
-# 5 = uv not installed
+# 0 = plugin can function (may have warnings about missing LLM credentials)
+# 1 = reserved (previously: missing Gemini — now a warning)
+# 2 = reserved (previously: missing OpenAI — now a warning)
+# 3 = could not locate plugin root (fatal)
+# 5 = uv not installed (fatal)
+#
+# Design: Missing LLM credentials are WARNINGS, not errors, because the workflow
+# can fall back to Claude Opus subagent review. Only truly fatal issues (uv missing,
+# plugin root not found) produce errors and non-zero exits.
 
 set -euo pipefail
 
@@ -101,12 +105,12 @@ else
         if [ -z "$gcp_project" ]; then
             gemini_auth='"adc_no_project"'
             if [ "$alert_if_missing" = "true" ]; then
-                errors+=("ADC found but no GCP project. Set vertex_ai.project in $config_file or export GOOGLE_CLOUD_PROJECT=your-project-id")
+                warnings+=("Gemini: ADC found but no GCP project. Set vertex_ai.project in $config_file or export GOOGLE_CLOUD_PROJECT=your-project-id")
             fi
         elif [ -z "$gcp_location" ]; then
             gemini_auth='"adc_no_location"'
             if [ "$alert_if_missing" = "true" ]; then
-                errors+=("ADC found but no GCP location. Set vertex_ai.location in $config_file or export GOOGLE_CLOUD_LOCATION=your-region (e.g., us-central1)")
+                warnings+=("Gemini: ADC found but no GCP location. Set vertex_ai.location in $config_file or export GOOGLE_CLOUD_LOCATION=your-region (e.g., us-central1)")
             fi
         else
             # ADC, project, and location exist - verify credentials are still valid
@@ -116,14 +120,14 @@ else
             else
                 gemini_auth='"adc_stale"'
                 if [ "$alert_if_missing" = "true" ]; then
-                    errors+=("Gemini ADC credentials are stale. Run: gcloud auth application-default login")
+                    warnings+=("Gemini: ADC credentials are stale. Run: gcloud auth application-default login")
                 fi
             fi
         fi
     else
-        # No auth found
+        # No auth found — recoverable, workflow can use Opus subagent for review
         if [ "$alert_if_missing" = "true" ]; then
-            errors+=("Gemini auth not found. Options: 1) export GEMINI_API_KEY=key 2) export GOOGLE_CLOUD_PROJECT=proj && gcloud auth application-default login")
+            warnings+=("Gemini: not configured. Options: 1) export GEMINI_API_KEY=key 2) export GOOGLE_CLOUD_PROJECT=proj && gcloud auth application-default login")
         fi
     fi
 fi
@@ -134,7 +138,7 @@ if [ -n "${OPENAI_API_KEY:-}" ]; then
     openai_auth="true"
 else
     if [ "$alert_if_missing" = "true" ]; then
-        errors+=("OPENAI_API_KEY not set")
+        warnings+=("OpenAI: OPENAI_API_KEY not set")
     fi
 fi
 
@@ -170,14 +174,14 @@ if [ -f "$test_script" ]; then
                 gemini_success=$(echo "$client_test_results" | jq -r '.gemini_api_key.success' 2>/dev/null)
                 if [ "$gemini_success" = "false" ]; then
                     gemini_error=$(echo "$client_test_results" | jq -r '.gemini_api_key.error' 2>/dev/null)
-                    errors+=("Gemini model test failed: $gemini_error")
+                    warnings+=("Gemini model test failed: $gemini_error. Check models.gemini in $config_file")
                     gemini_auth='"test_failed"'
                 fi
             elif echo "$client_test_results" | jq -e '.gemini_vertex_ai' > /dev/null 2>&1; then
                 gemini_success=$(echo "$client_test_results" | jq -r '.gemini_vertex_ai.success' 2>/dev/null)
                 if [ "$gemini_success" = "false" ]; then
                     gemini_error=$(echo "$client_test_results" | jq -r '.gemini_vertex_ai.error' 2>/dev/null)
-                    errors+=("Gemini model test failed: $gemini_error")
+                    warnings+=("Gemini model test failed: $gemini_error. Check models.gemini in $config_file")
                     gemini_auth='"test_failed"'
                 fi
             fi
@@ -187,7 +191,7 @@ if [ -f "$test_script" ]; then
                 openai_success=$(echo "$client_test_results" | jq -r '.openai.success' 2>/dev/null)
                 if [ "$openai_success" = "false" ]; then
                     openai_error=$(echo "$client_test_results" | jq -r '.openai.error' 2>/dev/null)
-                    errors+=("OpenAI model test failed: $openai_error")
+                    warnings+=("OpenAI model test failed: $openai_error. Check models.chatgpt in $config_file")
                     openai_auth="false"
                 fi
             fi
@@ -206,18 +210,25 @@ if [ ${#warnings[@]} -gt 0 ]; then
     warnings_json=$(printf '%s\n' "${warnings[@]}" | jq -R . | jq -s .)
 fi
 
+# Determine validity: only fatal errors (uv missing, plugin root) make valid=false
+# Missing LLM credentials are warnings — the workflow falls back to Opus subagent
 valid="true"
 exit_code=0
 if [ ${#errors[@]} -gt 0 ]; then
     valid="false"
-    # Determine exit code based on first error
-    # ADC errors are Gemini/Vertex AI related
-    if [[ "${errors[0]}" == *"Gemini"* ]] || [[ "${errors[0]}" == *"ADC"* ]]; then
-        exit_code=1
-    elif [[ "${errors[0]}" == *"OpenAI"* ]] || [[ "${errors[0]}" == *"OPENAI"* ]]; then
-        exit_code=2
-    fi
+    exit_code=1
 fi
 
-echo "{\"valid\": $valid, \"errors\": $errors_json, \"warnings\": $warnings_json, \"gemini_auth\": $gemini_auth, \"openai_auth\": $openai_auth, \"plugin_root\": \"$PLUGIN_ROOT\"}"
+# Determine if external LLM review is available
+# Both Gemini and OpenAI must be authenticated for full external review
+review_available="none"
+if [ "$gemini_auth" != "null" ] && [[ "$gemini_auth" != *"no_project"* ]] && [[ "$gemini_auth" != *"no_location"* ]] && [[ "$gemini_auth" != *"stale"* ]] && [[ "$gemini_auth" != *"test_failed"* ]] && [ "$openai_auth" = "true" ]; then
+    review_available="full"
+elif [ "$gemini_auth" != "null" ] && [[ "$gemini_auth" != *"no_project"* ]] && [[ "$gemini_auth" != *"no_location"* ]] && [[ "$gemini_auth" != *"stale"* ]] && [[ "$gemini_auth" != *"test_failed"* ]]; then
+    review_available="gemini_only"
+elif [ "$openai_auth" = "true" ]; then
+    review_available="openai_only"
+fi
+
+echo "{\"valid\": $valid, \"errors\": $errors_json, \"warnings\": $warnings_json, \"gemini_auth\": $gemini_auth, \"openai_auth\": $openai_auth, \"review_available\": \"$review_available\", \"plugin_root\": \"$PLUGIN_ROOT\"}"
 exit $exit_code
