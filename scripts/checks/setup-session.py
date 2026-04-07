@@ -185,15 +185,16 @@ def setup_session(
 
     # Resolve planning directory
     if is_plan_all and file_path.is_dir():
-        # For plan-all, the phases dir IS the input; plan alongside it
-        spec_parent = file_path.parent / "plan-all"
-        spec_parent.mkdir(parents=True, exist_ok=True)
+        # For plan-all, state lives alongside the phases dir — no session nesting
+        planning_dir = file_path.parent / "plan-all"
+        planning_dir.mkdir(parents=True, exist_ok=True)
     elif file_path.is_dir():
         spec_parent = file_path / "audit"
         spec_parent.mkdir(parents=True, exist_ok=True)
+        planning_dir = resolve_planning_dir(spec_parent, session_id)
     else:
         spec_parent = file_path.parent
-    planning_dir = resolve_planning_dir(spec_parent, session_id)
+        planning_dir = resolve_planning_dir(spec_parent, session_id)
 
     # Create or load session config
     try:
