@@ -23,7 +23,7 @@ from lib.config import (
 )
 from lib.deepstate import DeepStateTracker
 from lib.beads_sync import BeadsSyncTracker, detect_beads
-from lib.workflow import create_plan_workflow, create_discovery_workflow, create_plan_all_workflow
+from lib.workflow import create_plan_workflow, create_discovery_workflow, create_plan_all_workflow, create_autonomous_workflow
 
 
 VALID_REVIEW_MODES = {"external_llm", "opus_subagent", "skip"}
@@ -167,7 +167,7 @@ def setup_session(
 ) -> dict:
     """Core setup logic. Returns JSON-serializable result dict."""
     is_audit = workflow == "audit"
-    is_plan_all = workflow == "plan-all"
+    is_plan_all = workflow in ("plan-all", "auto")
 
     # Input validation
     if file_path.is_dir():
@@ -185,8 +185,9 @@ def setup_session(
 
     # Resolve planning directory
     if is_plan_all and file_path.is_dir():
-        # For plan-all, state lives alongside the phases dir — no session nesting
-        planning_dir = file_path.parent / "plan-all"
+        # For plan-all/auto, state lives alongside the phases dir — no session nesting
+        subdir = "auto" if workflow == "auto" else "plan-all"
+        planning_dir = file_path.parent / subdir
         planning_dir.mkdir(parents=True, exist_ok=True)
     elif file_path.is_dir():
         spec_parent = file_path / "audit"
@@ -308,6 +309,13 @@ def setup_session(
         epic_title = create_discovery_workflow(
             tracker, **context,
         )
+    elif workflow == "auto":
+        epic_title = create_autonomous_workflow(
+            tracker,
+            phases_dir=str(file_path),
+            plugin_root=str(plugin_root),
+            discovery_findings=str(file_path.parent),
+        )
     elif is_plan_all:
         epic_title = create_plan_all_workflow(
             tracker,
@@ -356,8 +364,8 @@ def main():
     parser.add_argument("--force", action="store_true", help="Force overwrite of existing state")
     parser.add_argument("--session-id", help="Session ID from hook's additionalContext")
     parser.add_argument(
-        "--workflow", choices=["plan", "audit", "plan-all"], default="plan",
-        help="Workflow type: plan (default), audit, or plan-all",
+        "--workflow", choices=["plan", "audit", "plan-all", "auto"], default="plan",
+        help="Workflow type: plan (default), audit, plan-all, or auto",
     )
     args = parser.parse_args()
 

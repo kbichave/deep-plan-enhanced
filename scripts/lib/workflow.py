@@ -305,6 +305,15 @@ def parse_phasing_overview(phases_dir: str) -> dict[str, list[str]]:
 # Steps to skip for phases after the first (interview already done in discovery)
 _SKIP_STEPS_AFTER_FIRST = {"detailed-interview", "save-interview"}
 
+# Steps requiring human interaction — pre-closed in autonomous mode
+_HUMAN_INTERACTIVE_STEPS = {
+    "detailed-interview",
+    "save-interview",
+    "user-review",
+    "context-check-pre-review",
+    "context-check-pre-split",
+}
+
 
 def create_plan_all_workflow(
     tracker: DeepStateTracker,
@@ -374,6 +383,82 @@ def create_plan_all_workflow(
             # For non-first phases, pre-close interview steps
             if not is_first and task_id in _SKIP_STEPS_AFTER_FIRST:
                 tracker.close(namespaced_id, "Skipped: interview completed in discovery phase")
+
+            prev_step_id = namespaced_id
+
+        is_first = False
+
+    return epic_title
+
+
+def create_autonomous_workflow(
+    tracker: DeepStateTracker,
+    *,
+    phases_dir: str,
+    plugin_root: str,
+    discovery_findings: str,
+) -> str:
+    """Create plan-all workflow with human-interactive steps pre-closed.
+
+    Same as create_plan_all_workflow but also pre-closes interview,
+    user-review, and context-check steps across ALL phases. This enables
+    fully autonomous execution without human interaction.
+
+    Returns the top-level epic title.
+    """
+    phase_deps = parse_phasing_overview(phases_dir)
+
+    project_name = Path(phases_dir).parent.name or "project"
+    epic_title = f"auto-plan-implement: {project_name}"
+
+    tracker.init(epic_title, {
+        "phases_dir": phases_dir,
+        "plugin_root": plugin_root,
+        "discovery_findings": discovery_findings,
+        "autonomous": True,
+    })
+
+    sorted_phases = sorted(phase_deps.keys())
+    is_first = True
+
+    for phase_id in sorted_phases:
+        deps = phase_deps[phase_id]
+        phase_issue_id = f"phase-{phase_id}"
+
+        phase_dep_ids = [f"phase-{d}" for d in deps]
+        tracker.create(phase_issue_id, phase_id, depends_on=phase_dep_ids)
+
+        prev_step_id = None
+        for step_num in sorted(TASK_IDS.keys()):
+            task_id = TASK_IDS[step_num]
+            task_def = TASK_DEFINITIONS[task_id]
+            namespaced_id = f"{phase_id}-{task_id}"
+
+            if prev_step_id is None:
+                step_deps = [phase_issue_id]
+            else:
+                step_deps = [prev_step_id]
+
+            description = task_def.description
+            if not is_first and task_id in {"research-decision", "execute-research"}:
+                description = (
+                    f"Review discovery findings from {discovery_findings}. "
+                    "Conduct focused research only on phase-specific topics."
+                )
+
+            tracker.create(
+                namespaced_id,
+                task_def.subject,
+                description=description,
+                depends_on=step_deps,
+            )
+
+            # Pre-close all human-interactive steps
+            if task_id in _HUMAN_INTERACTIVE_STEPS:
+                reason = "Skipped: autonomous mode (no human review)"
+                if not is_first and task_id in _SKIP_STEPS_AFTER_FIRST:
+                    reason = "Skipped: interview completed in discovery phase"
+                tracker.close(namespaced_id, reason)
 
             prev_step_id = namespaced_id
 
