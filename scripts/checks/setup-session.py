@@ -23,7 +23,7 @@ from lib.config import (
 )
 from lib.deepstate import DeepStateTracker
 from lib.beads_sync import BeadsSyncTracker, detect_beads
-from lib.workflow import create_plan_workflow, create_discovery_workflow
+from lib.workflow import create_plan_workflow, create_discovery_workflow, create_plan_all_workflow
 
 
 VALID_REVIEW_MODES = {"external_llm", "opus_subagent", "skip"}
@@ -140,11 +140,13 @@ def determine_mode(tracker: DeepStateTracker) -> tuple[str, dict]:
     }
 
 
-def check_partial_setup(tracker: DeepStateTracker, expected_count: int) -> bool:
+def check_partial_setup(tracker: DeepStateTracker, expected_count: int | None) -> bool:
     """Return True if deepstate exists but issue count is inconsistent."""
     state_file = tracker.state_dir / "state.json"
     if not state_file.exists():
         return False
+    if expected_count is None:
+        return False  # Dynamic workflow — can't validate count
     try:
         state = tracker._load()
         if not state.get("epic"):
@@ -165,10 +167,11 @@ def setup_session(
 ) -> dict:
     """Core setup logic. Returns JSON-serializable result dict."""
     is_audit = workflow == "audit"
+    is_plan_all = workflow == "plan-all"
 
     # Input validation
     if file_path.is_dir():
-        if not is_audit:
+        if not is_audit and not is_plan_all:
             return {
                 "success": False,
                 "error": f"Expected a spec file (.md), got a directory: {file_path}. "
@@ -181,7 +184,11 @@ def setup_session(
         return {"success": False, "error": f"Spec file is empty: {file_path}", "mode": "error"}
 
     # Resolve planning directory
-    if file_path.is_dir():
+    if is_plan_all and file_path.is_dir():
+        # For plan-all, the phases dir IS the input; plan alongside it
+        spec_parent = file_path.parent / "plan-all"
+        spec_parent.mkdir(parents=True, exist_ok=True)
+    elif file_path.is_dir():
         spec_parent = file_path / "audit"
         spec_parent.mkdir(parents=True, exist_ok=True)
     else:
@@ -225,7 +232,12 @@ def setup_session(
 
     # Initialize tracker
     from lib.tasks import TASK_IDS, AUDIT_TASK_IDS
-    expected_count = len(AUDIT_TASK_IDS) if is_audit else len(TASK_IDS)
+    if is_plan_all:
+        expected_count = None  # Dynamic — depends on number of phases
+    elif is_audit:
+        expected_count = len(AUDIT_TASK_IDS)
+    else:
+        expected_count = len(TASK_IDS)
 
     state_dir = planning_dir / ".deepstate"
     base_tracker = DeepStateTracker(state_dir=state_dir)
@@ -295,6 +307,13 @@ def setup_session(
         epic_title = create_discovery_workflow(
             tracker, **context,
         )
+    elif is_plan_all:
+        epic_title = create_plan_all_workflow(
+            tracker,
+            phases_dir=str(file_path),
+            plugin_root=str(plugin_root),
+            discovery_findings=str(file_path.parent),
+        )
     else:
         epic_title = create_plan_workflow(
             tracker, **context,
@@ -321,7 +340,7 @@ def setup_session(
         "review_mode": review_mode,
         "epic_id": epic_title,
         "beads_available": beads_available,
-        "message": f"Starting new {'audit' if is_audit else 'planning'} session in: {planning_dir}",
+        "message": f"Starting new {'audit' if is_audit else 'plan-all' if is_plan_all else 'planning'} session in: {planning_dir}",
     }
 
 
@@ -336,8 +355,8 @@ def main():
     parser.add_argument("--force", action="store_true", help="Force overwrite of existing state")
     parser.add_argument("--session-id", help="Session ID from hook's additionalContext")
     parser.add_argument(
-        "--workflow", choices=["plan", "audit"], default="plan",
-        help="Workflow type: plan (default) or audit",
+        "--workflow", choices=["plan", "audit", "plan-all"], default="plan",
+        help="Workflow type: plan (default), audit, or plan-all",
     )
     args = parser.parse_args()
 
