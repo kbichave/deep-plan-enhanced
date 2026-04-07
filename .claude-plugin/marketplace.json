@@ -16,7 +16,7 @@
         "name": "kbichave",
         "url": "https://github.com/kbichave"
       },
-      "source": ".",
+      "source": "./",
       "category": "development",
       "homepage": "https://github.com/kbichave/deep-plan-enhanced",
       "tags": ["planning", "implementation", "tdd", "architecture", "llm-review", "execution", "audit", "system-design", "build-vs-buy"]
