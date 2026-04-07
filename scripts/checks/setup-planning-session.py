@@ -41,6 +41,11 @@ from lib.tasks import (
     TASK_IDS,
     TaskStatus,
     generate_expected_tasks,
+    # Audit workflow
+    AUDIT_STEP_NAMES,
+    AUDIT_TASK_DEPENDENCIES,
+    AUDIT_TASK_IDS,
+    generate_expected_audit_tasks,
 )
 
 # Context task IDs (positions 1-4)
@@ -354,6 +359,118 @@ def _write_initial_progress(progress_file: Path, spec_file: str, mode: str) -> N
         pass  # Non-critical
 
 
+def scan_audit_files(planning_dir: Path) -> dict:
+    """Scan audit directory for existing files."""
+    files = {
+        "findings": (planning_dir / "findings.md").exists(),
+        "interview": (planning_dir / "interview.md").exists(),
+        "current_state": [],
+        "gaps": [],
+        "architecture": [],
+        "specs": [],
+        "operations": [],
+        "strategy": [],
+        "phases": [],
+        "build_vs_buy": [],
+        "reviews": [],
+    }
+    for subdir in ["current-state", "gaps", "architecture", "specs",
+                    "operations", "strategy", "phases", "build-vs-buy"]:
+        d = planning_dir / subdir
+        if d.exists():
+            key = subdir.replace("-", "_")
+            files[key] = [f.name for f in d.glob("*.md")]
+    reviews_dir = planning_dir / "reviews"
+    if reviews_dir.exists():
+        files["reviews"] = [f.name for f in reviews_dir.glob("*.md")]
+    return files
+
+
+def infer_audit_resume_step(files: dict) -> tuple[int | None, str]:
+    """Infer which audit step to resume from based on existing files.
+
+    Returns (resume_step, last_completed_description).
+    """
+    if files["phases"]:
+        if files["reviews"]:
+            return 12, "external review complete"
+        return 11, "phase specs generated"
+    if files["build_vs_buy"]:
+        return 10, "build-vs-buy analysis complete"
+    if files["current_state"] or files["gaps"] or files["architecture"]:
+        if files["interview"]:
+            return 8, "audit docs partially generated"
+        return 7, "auto gaps identified"
+    if files["findings"] and (planning_dir := None) is None:
+        # Can't check content easily here — check existence only
+        if files["interview"]:
+            return 8, "interview complete"
+        return 6, "findings exist, gaps not yet identified"
+    # Fresh start
+    return 4, "none"
+
+
+def _write_audit_progress(progress_file: Path, target: str, mode: str) -> None:
+    """Write initial progress.md for audit workflow."""
+    content = f"""# Deep-Audit Progress
+
+**Target:** {target}
+**Mode:** {mode}
+**Started:** (auto-filled by setup)
+
+## Workflow Steps
+
+- [x] Step 1-3: Environment validation and session setup
+- [ ] Step 4: Quick scan
+- [ ] Step 5: Deep research (parallel subagents)
+- [ ] Step 6: Auto gap identification
+- [ ] Step 7: Stakeholder interview
+- [ ] Step 8: Generate audit documents
+- [ ] Step 9: Generate build-vs-buy analysis
+- [ ] Step 10: Generate phase specs
+- [ ] Step 11: External LLM review
+- [ ] Step 12: User review
+- [ ] Step 13: Output summary
+
+## Errors Encountered
+
+| Step | Error | Attempt | Resolution |
+|------|-------|---------|------------|
+
+## Notes
+
+"""
+    try:
+        progress_file.write_text(content)
+    except OSError:
+        pass
+
+
+def _write_initial_findings(findings_file: Path) -> None:
+    """Write empty findings.md accumulator for audit workflow."""
+    content = """# Audit Findings
+
+*Running accumulator. Updated after every 2 subagent returns.*
+*Last updated: (not yet started)*
+
+## Quick Scan Results
+
+(Populated in step 4)
+
+## Codebase Findings
+
+(Populated in step 5)
+
+## Ecosystem Findings
+
+(Populated in step 5)
+"""
+    try:
+        findings_file.write_text(content)
+    except OSError:
+        pass
+
+
 def main():
     parser = argparse.ArgumentParser(description="Setup planning session for deep-plan workflow")
     parser.add_argument(
@@ -380,6 +497,12 @@ def main():
     parser.add_argument(
         "--session-id",
         help="Session ID from hook's additionalContext (takes precedence over env vars)"
+    )
+    parser.add_argument(
+        "--workflow",
+        choices=["plan", "audit"],
+        default="plan",
+        help="Workflow type: plan (default) or audit"
     )
     args = parser.parse_args()
 
@@ -516,50 +639,75 @@ def main():
         # Resume - use stored value if present, otherwise CLI arg
         review_mode = session_config.get("review_mode", args.review_mode)
 
-    # Scan for existing planning files
-    files_found = scan_planning_files(planning_dir)
+    is_audit = args.workflow == "audit"
 
-    # Check section progress (needed for accurate completion detection)
-    section_progress = check_section_progress(planning_dir)
-
-    # Infer resume step from files and section progress
-    resume_step, last_completed = infer_resume_step(files_found, section_progress)
-
-    # Build files summary
-    files_summary = build_files_summary(files_found, section_progress)
+    # Scan for existing files (audit vs plan have different file sets)
+    if is_audit:
+        files_found = scan_audit_files(planning_dir)
+        resume_step, last_completed = infer_audit_resume_step(files_found)
+        files_summary = [
+            f for subdir in ["current_state", "gaps", "architecture", "specs",
+                             "operations", "strategy", "phases", "build_vs_buy"]
+            if files_found.get(subdir)
+            for f in [f"{subdir.replace('_', '-')}/ ({len(files_found[subdir])} files)"]
+        ]
+        if files_found.get("findings"):
+            files_summary.insert(0, "findings.md")
+        if files_found.get("interview"):
+            files_summary.insert(0, "interview.md")
+        fresh_step = 4  # Audit starts at step 4
+        complete_step = 13  # Audit ends at step 13
+        step_names = AUDIT_STEP_NAMES
+    else:
+        files_found = scan_planning_files(planning_dir)
+        section_progress = check_section_progress(planning_dir)
+        resume_step, last_completed = infer_resume_step(files_found, section_progress)
+        files_summary = build_files_summary(files_found, section_progress)
+        fresh_step = 6  # Plan starts at step 6
+        complete_step = 22  # Plan ends at step 22
+        step_names = STEP_NAMES
 
     # Determine mode
     if resume_step is None:
         mode = "complete"
-    elif resume_step == 6 and not files_summary:
+    elif resume_step == fresh_step and not files_summary:
         mode = "new"
     else:
         mode = "resume"
 
     # Build message
     if mode == "resume":
-        step_name = STEP_NAMES.get(resume_step, f"Step {resume_step}")
+        step_name = step_names.get(resume_step, f"Step {resume_step}")
         message = f"Resuming from step {resume_step} ({step_name}). Last completed: {last_completed}"
     elif mode == "complete":
-        message = "Planning workflow complete - all sections written"
+        message = f"{'Audit' if is_audit else 'Planning'} workflow complete"
     elif not file_path.exists():
-        message = f"Starting new session. Spec file will be created: {file_path}"
+        message = f"Starting new session. File will be created: {file_path}"
     else:
-        message = f"Starting new planning session in: {planning_dir}"
+        message = f"Starting new {'audit' if is_audit else 'planning'} session in: {planning_dir}"
 
     # Generate expected tasks for Claude to reconcile
-    # Use step 6 as default for new sessions, or 22 for complete
-    current_step = resume_step if resume_step is not None else 22
-    expected_tasks = generate_expected_tasks(
-        resume_step=current_step,
-        plugin_root=str(plugin_root),
-        planning_dir=str(planning_dir),
-        initial_file=str(file_path),
-        review_mode=review_mode,
-    )
+    current_step = resume_step if resume_step is not None else complete_step
+    if is_audit:
+        expected_tasks = generate_expected_audit_tasks(
+            resume_step=current_step,
+            plugin_root=str(plugin_root),
+            planning_dir=str(planning_dir),
+            initial_file=str(file_path),
+            review_mode=review_mode,
+        )
+    else:
+        expected_tasks = generate_expected_tasks(
+            resume_step=current_step,
+            plugin_root=str(plugin_root),
+            planning_dir=str(planning_dir),
+            initial_file=str(file_path),
+            review_mode=review_mode,
+        )
 
     # Check if sections exist FIRST to determine task structure
-    has_sections = files_found["sections_index"]
+    # Audit workflow doesn't use sections — skip section task logic
+    has_sections = False if is_audit else files_found.get("sections_index", False)
     section_tasks: list[TaskToWrite] = []
     section_deps: dict[str, list[str]] = {}
     section_task_count = 0
@@ -662,7 +810,8 @@ def main():
         section_deps = {**section_deps, **shifted_deps}
 
     # Build complete dependency graph
-    all_dependencies = {**TASK_DEPENDENCIES, **section_deps}
+    base_deps = AUDIT_TASK_DEPENDENCIES if is_audit else TASK_DEPENDENCIES
+    all_dependencies = {**base_deps, **section_deps}
     dependency_graph = build_dependency_graph(
         tasks_to_write,
         all_dependencies,
@@ -715,7 +864,14 @@ def main():
     # Generate or update progress.md for human-readable step tracking
     progress_file = planning_dir / "progress.md"
     if not progress_file.exists():
-        _write_initial_progress(progress_file, str(file_path), mode)
+        if is_audit:
+            _write_audit_progress(progress_file, str(file_path), mode)
+            # Also create findings.md accumulator for audit workflow
+            findings_file = planning_dir / "findings.md"
+            if not findings_file.exists():
+                _write_initial_findings(findings_file)
+        else:
+            _write_initial_progress(progress_file, str(file_path), mode)
 
     # Build output
     result = {
@@ -724,6 +880,7 @@ def main():
         "planning_dir": str(planning_dir),
         "initial_file": str(file_path),
         "plugin_root": str(plugin_root),
+        "workflow": args.workflow,
         "review_mode": review_mode,
         "resume_from_step": resume_step,
         "message": message,

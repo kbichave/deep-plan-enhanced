@@ -44,18 +44,27 @@ def main() -> int:
         # No checklist found — allow stop
         return 0
 
+    # Check if findings.md exists and has real content (audit workflow indicator)
+    findings_file = planning_dir / "findings.md"
+    has_findings = findings_file.exists() and findings_file.stat().st_size > 200
+    is_audit = has_findings  # findings.md is audit-specific
+
     if completed >= total:
+        next_step = (
+            "You can proceed with /deep-plan on a phase spec, or /deep-implement."
+            if is_audit else
+            "Planning workflow finished. You can proceed to /deep-implement or start a new session."
+        )
         output = {
             "followup_message": (
-                f"[deep-plan] ALL STEPS COMPLETE ({completed}/{total}). "
-                "Planning workflow finished. You can proceed to implementation "
-                "with /deep-implement or start a new session."
+                f"[deep-{'audit' if is_audit else 'plan'}] ALL STEPS COMPLETE ({completed}/{total}). "
+                f"{next_step}"
             )
         }
     else:
         output = {
             "followup_message": (
-                f"[deep-plan] Workflow incomplete ({completed}/{total} steps done, "
+                f"[deep-{'audit' if is_audit else 'plan'}] Workflow incomplete ({completed}/{total} steps done, "
                 f"{pending} remaining). Read progress.md in {planning_dir} and "
                 "continue from the current step."
             )

@@ -1,8 +1,10 @@
 # deep-plan-enhanced
 
-A Claude Code plugin with two skills for planning and implementing complex features.
+A Claude Code plugin with three skills for auditing, planning, and implementing complex systems.
 
-**`/deep-plan`** creates a detailed implementation blueprint through research, stakeholder interviews, multi-LLM review, and TDD-oriented section splitting.
+**`/deep-audit`** audits an existing system or researches a greenfield project. Produces a comprehensive audit directory with focused per-topic files, dynamic phase specs, granular build-vs-buy analysis, and a migration roadmap. Researches competitors, packages, and academic papers before asking questions.
+
+**`/deep-plan`** takes one piece of the audit roadmap and creates a detailed implementation blueprint through research, stakeholder interviews, multi-LLM review, and TDD-oriented section splitting.
 
 **`/deep-implement`** executes that blueprint section by section with disk-based progress tracking, quality gates, and hooks that prevent goal drift.
 
@@ -14,7 +16,7 @@ A Claude Code plugin with two skills for planning and implementing complex featu
 claude plugin add --from github:kbichave/deep-plan-enhanced
 ```
 
-This registers both skills and all hooks automatically.
+This registers all three skills and hooks automatically.
 
 ### As Local Skills
 
@@ -33,14 +35,42 @@ cd ~/.claude/plugins/deep-plan-enhanced && uv sync
 ## The Workflow
 
 ```
-/deep-plan @spec.md           Research -> Interview -> Plan -> Review -> TDD -> Sections
-                               (produces the implementation blueprint)
+/deep-audit                    Scan -> Research -> Interview -> Audit Docs -> Phase Specs -> Build-vs-Buy
+                               (produces the system audit + migration roadmap)
+
+/deep-plan @phase-spec.md     Research -> Interview -> Plan -> Review -> TDD -> Sections
+                               (produces the implementation blueprint for one phase)
 
 /deep-implement @plan-dir/    Reads sections -> Implements in dependency order
                                (writes the code, tracks progress, enforces quality)
 ```
 
+The three skills form a complete pipeline: **audit → plan → implement**.
+
 ## What's Inside
+
+### /deep-audit
+
+A general-purpose system audit that works on any project — existing codebase, greenfield, or hybrid.
+
+| Step | What Happens |
+|------|-------------|
+| Quick Scan | Detect tech stack, structure, domain, codebase size |
+| Deep Research | Parallel codebase agents + ecosystem agents (competitors, packages, arxiv papers) |
+| Auto Gaps | Identify structural problems, missing capabilities, infrastructure gaps |
+| Interview | Present findings, expand scope (suggest what user didn't ask for), extract priorities |
+| Audit Docs | Parallel subagents write focused per-topic files (one topic per file) |
+| Build-vs-Buy | Per-capability evaluation: pip install vs SaaS vs build custom |
+| Phase Specs | Dynamic phases named from gaps (not hardcoded), with dependency graph |
+| External Review | Multi-LLM review focused on missing gaps and wrong recommendations |
+
+**Key features:**
+- **Dynamic research depth** — 2 agents for a small CLI, 10+ for a large platform
+- **Interview expands scope** — suggests capabilities user didn't ask for based on ecosystem research
+- **Build-vs-buy is granular** — real package names with real version numbers per capability
+- **Eval-on-write** — auto-scores each generated file, regenerates if below quality threshold
+- **Findings accumulate on disk** — survives context loss via 2-Action Rule
+- **Works on greenfield** — no code needed, researches ecosystem from a brief
 
 ### /deep-plan
 
@@ -77,7 +107,7 @@ Executes the blueprint section by section with discipline hooks.
 | **SessionStart** | Session begins | Captures session ID + plugin root for task isolation |
 | **PostToolUse** | After Write/Edit | Nudges agent to update progress files |
 | **Stop** | Agent tries to exit | Requires implementation summary; blocks exit if sections incomplete |
-| **SubagentStop** | Section writer finishes | Extracts content and writes section file to disk |
+| **SubagentStop** | Section/audit-doc writer finishes | Extracts content and writes file to disk |
 
 ## Requirements
 

@@ -318,3 +318,161 @@ def generate_expected_tasks(
         })
 
     return expected
+
+
+# ============================================================================
+# AUDIT WORKFLOW DEFINITIONS
+# ============================================================================
+
+# Task IDs for audit workflow steps
+# Steps 1-3 are setup (not tracked as tasks)
+# Steps 4-13 are the main audit workflow
+AUDIT_TASK_IDS: dict[int, str] = {
+    4: "quick-scan",
+    5: "deep-research",
+    6: "auto-gaps",
+    7: "stakeholder-interview",
+    8: "generate-audit-docs",
+    9: "generate-build-vs-buy",
+    10: "generate-phase-specs",
+    11: "external-review",
+    12: "user-review",
+    13: "output-summary",
+}
+
+AUDIT_TASK_ID_TO_STEP: dict[str, int] = {v: k for k, v in AUDIT_TASK_IDS.items()}
+
+AUDIT_STEP_NAMES: dict[int, str] = {
+    0: "Context check",
+    1: "Validate environment",
+    2: "Detect audit mode",
+    3: "Setup session",
+    4: "Quick scan",
+    5: "Deep research (parallel subagents)",
+    6: "Auto gap identification",
+    7: "Stakeholder interview",
+    8: "Generate audit documents",
+    9: "Generate build-vs-buy analysis",
+    10: "Generate phase specs",
+    11: "External LLM review",
+    12: "User review",
+    13: "Output summary",
+}
+
+AUDIT_TASK_DEPENDENCIES: dict[str, list[str]] = {
+    # Context items
+    "context-plugin-root": ["output-summary"],
+    "context-planning-dir": ["output-summary"],
+    "context-initial-file": ["output-summary"],
+    "context-review-mode": ["output-summary"],
+    # Main audit workflow
+    "quick-scan": [],  # Can start immediately
+    "deep-research": ["quick-scan"],
+    "auto-gaps": ["deep-research"],
+    "stakeholder-interview": ["auto-gaps"],  # Interview AFTER research (research-first)
+    "generate-audit-docs": ["stakeholder-interview"],
+    "generate-build-vs-buy": ["generate-audit-docs"],  # Needs audit docs for context
+    "generate-phase-specs": ["generate-build-vs-buy"],  # Needs build-vs-buy decisions
+    "external-review": ["generate-phase-specs"],
+    "user-review": ["external-review"],
+    "output-summary": ["user-review"],
+}
+
+AUDIT_TASK_DEFINITIONS: dict[str, TaskDefinition] = {
+    "quick-scan": TaskDefinition(
+        subject="Quick Scan",
+        description="Read audit-research-protocol.md. Launch 1 Explore agent for structural scan. Detect tech stack, domain, size.",
+        active_form="Running quick codebase scan",
+    ),
+    "deep-research": TaskDefinition(
+        subject="Deep Research",
+        description="Read audit-research-protocol.md. Launch parallel agents (codebase + ecosystem). Update findings.md after every 2 returns.",
+        active_form="Running deep parallel research",
+    ),
+    "auto-gaps": TaskDefinition(
+        subject="Auto Gap Identification",
+        description="Read findings.md. Write current-state/ and gaps/ files. Draft build-vs-buy list.",
+        active_form="Identifying gaps from research",
+    ),
+    "stakeholder-interview": TaskDefinition(
+        subject="Stakeholder Interview",
+        description="Read audit-interview-protocol.md. Present findings, expand scope, follow thread. Write interview.md.",
+        active_form="Conducting stakeholder interview",
+    ),
+    "generate-audit-docs": TaskDefinition(
+        subject="Generate Audit Documents",
+        description="Read audit-doc-writing.md. Launch parallel audit-doc-writer subagents. Eval-on-write quality gate.",
+        active_form="Generating audit documents",
+    ),
+    "generate-build-vs-buy": TaskDefinition(
+        subject="Generate Build-vs-Buy Analysis",
+        description="Read audit-build-vs-buy.md. Launch parallel subagents to evaluate pip/npm/SaaS for each capability.",
+        active_form="Generating build-vs-buy analysis",
+    ),
+    "generate-phase-specs": TaskDefinition(
+        subject="Generate Phase Specs",
+        description="Read audit-phasing.md. Discover phases from gaps. Generate phasing-overview.md + per-phase specs.",
+        active_form="Generating phase specifications",
+    ),
+    "external-review": TaskDefinition(
+        subject="External LLM Review",
+        description="Read external-review.md. Focus: missing gaps, wrong build-vs-buy, phasing errors.",
+        active_form="Running external LLM review",
+    ),
+    "user-review": TaskDefinition(
+        subject="User Review",
+        description="Present audit directory to user for review and feedback.",
+        active_form="Waiting for user review",
+    ),
+    "output-summary": TaskDefinition(
+        subject="Output Summary",
+        description="Generate README.md index. Print file listing and next steps.",
+        active_form="Outputting summary",
+    ),
+}
+
+
+def generate_expected_audit_tasks(
+    resume_step: int,
+    plugin_root: str,
+    planning_dir: str,
+    initial_file: str,
+    review_mode: str,
+) -> list[dict]:
+    """Generate expected task states for audit workflow.
+
+    Same pattern as generate_expected_tasks but uses AUDIT_* definitions.
+    """
+    expected: list[dict] = []
+
+    # Context tasks (same structure as deep-plan)
+    expected.extend(
+        create_context_tasks(
+            plugin_root=plugin_root,
+            planning_dir=planning_dir,
+            initial_file=initial_file,
+            review_mode=review_mode,
+        )
+    )
+
+    # Audit workflow tasks
+    for step_num, task_id in sorted(AUDIT_TASK_IDS.items()):
+        task_def = AUDIT_TASK_DEFINITIONS[task_id]
+
+        if step_num < resume_step:
+            status = TaskStatus.COMPLETED
+        elif step_num == resume_step:
+            status = TaskStatus.IN_PROGRESS
+        else:
+            status = TaskStatus.PENDING
+
+        expected.append({
+            "id": task_id,
+            "subject": task_def.subject,
+            "description": task_def.description,
+            "activeForm": task_def.active_form,
+            "status": status,
+            "blockedBy": AUDIT_TASK_DEPENDENCIES[task_id],
+        })
+
+    return expected

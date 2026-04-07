@@ -32,9 +32,13 @@ Read the spec file (from `initial_file` in task context items) and extract poten
 - **Architecture patterns** (microservices, event-driven, serverless, etc.)
 - **Integration points** (third-party APIs, OAuth providers, payment gateways, etc.)
 
-Generate 3-5 research topic suggestions based on what you find. Format them as searchable queries with year for recency:
-- "React authentication patterns 2025"
-- "PostgreSQL full-text search best practices"
+Generate 3-5 research topic suggestions based on what you find. Format them as searchable queries with the CURRENT YEAR for recency.
+
+**IMPORTANT:** Use the current year from the system context. NEVER hardcode "2025" or any specific year. The system prompt contains the current date — derive the year from it.
+
+Examples (substitute the actual current year):
+- "React authentication patterns {current_year}"
+- "PostgreSQL full-text search best practices {current_year}"
 - "Redis session storage patterns"
 - "File upload security considerations"
 

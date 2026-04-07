@@ -1,0 +1,334 @@
+# Audit Research Protocol (CORAL-Inspired Evolutionary Loop)
+
+Research is NOT a linear sequence. It is an evolutionary loop where each wave of agents builds on the discoveries of previous waves. Agents share knowledge through `findings.md` on disk. The loop continues until understanding is comprehensive enough to identify gaps.
+
+## Overview
+
+```
+Wave 0: Quick Scan (1 agent, 30 seconds)
+  → Detect structure, tech stack, domain
+  → Write findings.md (initial state)
+  → Generate Wave 1 missions
+
+Wave 1: First Deep Pass (N parallel agents)
+  → Each agent READS findings.md first (shared knowledge)
+  → Execute focused missions
+  → Return results → main Claude writes to findings.md
+  → Agents note "Open Questions" they couldn't answer
+
+REFLECTION: Main Claude reads all findings
+  → What's resolved? What's unknown? Contradictions?
+  → Decision: more research needed or proceed to gaps?
+
+Wave 2: Targeted Follow-Up (if needed, M agents)
+  → Missions generated FROM Wave 1 findings + open questions
+  → Agents READ findings.md (includes Wave 0+1)
+  → Fewer agents, more focused: fill holes, resolve contradictions
+  → Return → update findings.md
+
+REFLECTION → (usually exit here)
+
+Wave 3+: Rare — only for genuinely complex/unfamiliar domains
+
+EXIT → Gap Identification from accumulated findings
+```
+
+**Why this is different from linear research:**
+- Wave 2 agents KNOW what Wave 1 found (they read findings.md)
+- Missions evolve based on discoveries, not predetermined
+- Open questions propagate forward (each agent notes what it can't answer)
+- Contradictions are actively resolved (not just left for human to sort out)
+- The process self-terminates (when new agents return diminishing information)
+
+---
+
+## Wave 0: Quick Scan
+
+### Existing System Mode
+
+Launch 1 Explore agent:
+
+```
+subagent_type: Explore
+description: "Quick structural scan"
+prompt: |
+  Rapid structural scan. You have 30 seconds.
+  
+  Find:
+  1. Primary language and framework (read config files)
+  2. Directory structure (depth 2)
+  3. Key config files (env, docker, CI, deploy)
+  4. Entry points
+  5. Approximate size (file count, line estimate)
+  6. Problem domain (what does this system DO)
+  7. Key technologies (databases, caches, queues, cloud, APIs)
+  
+  DO NOT read file contents in depth — just structure and configs.
+  
+  At the end, list OPEN QUESTIONS — things you noticed but couldn't
+  investigate in 30 seconds. These drive Wave 1.
+  
+  Return findings as markdown.
+```
+
+### Greenfield Mode
+
+No scan agent. Parse the brief:
+- Technologies mentioned
+- Problem domain
+- Scale hints
+- What ecosystem research is needed
+
+### Output
+
+Write to findings.md with wave metadata. List open questions that drive Wave 1 missions.
+
+---
+
+## Wave 1: First Deep Pass
+
+### Agent Assignment
+
+Generate missions from Wave 0's open questions + detected structure. Each agent gets:
+
+1. **A focused mission** (NOT "research everything" — one specific aspect)
+2. **findings.md** (so they see what Wave 0 found and don't repeat it)
+3. **Instruction to note open questions** (what they discover that needs deeper investigation)
+
+### Codebase Agent Prompt Pattern
+
+```
+subagent_type: Explore
+description: "{mission_name}"
+prompt: |
+  CONTEXT: Read findings.md first — it contains what we already know from Wave 0.
+  Do NOT repeat what's already documented. Go DEEPER in your specific area.
+  
+  YOUR MISSION: {specific_aspect}
+  
+  Questions to answer:
+  {generated_from_wave0_open_questions}
+  
+  Files to focus on:
+  {detected_relevant_paths_from_wave0}
+  
+  At the end of your findings, include:
+  
+  ### Open Questions Raised
+  - {Things you discovered that need deeper investigation}
+  - {Contradictions with other findings}
+  - {Areas you couldn't fully explore in this pass}
+  
+  Return findings as markdown with header:
+  ## {Mission Name}
+  <!-- source: codebase-{N}, confidence: {high|medium|low}, topic: {category}, wave: 1 -->
+```
+
+### Ecosystem Agent Prompt Pattern
+
+```
+subagent_type: general (with WebSearch + WebFetch)
+description: "{mission_name}"
+prompt: |
+  CONTEXT: Read findings.md — it describes the system we're auditing.
+  Your job is to research the ECOSYSTEM around this system.
+  
+  IMPORTANT: Current date is {current_date}. Use {current_year} in ALL searches.
+  
+  YOUR MISSION: {specific_research_goal}
+  
+  Search strategy:
+  {generated_search_queries}
+  
+  For each result:
+  1. WebSearch for authoritative sources
+  2. WebFetch for details on promising results
+  3. Cross-validate across sources
+  4. Note SPECIFIC package names, versions, star counts, last release dates
+  
+  At the end, include:
+  
+  ### Open Questions Raised
+  - {Things that need codebase investigation to resolve}
+  - {Packages found that need integration analysis}
+  - {Claims that need verification against actual code}
+  
+  Return findings with:
+  ## {Mission Name}
+  <!-- source: ecosystem-{N}, confidence: {high|medium|low}, topic: {category}, wave: 1 -->
+  
+  Always cite sources with URLs.
+```
+
+### Academic Research Agent (When Warranted)
+
+Launch when Wave 0 detects a domain with active research (ML, NLP, distributed systems, search, optimization, etc.):
+
+```
+prompt: |
+  CONTEXT: Read findings.md for system context.
+  
+  IMPORTANT: Use {current_year} in searches.
+  
+  Research academic papers and publications relevant to: {topic}
+  
+  Search:
+  - arxiv.org for recent papers on {topic}
+  - Google Scholar for highly-cited work
+  - Conference proceedings ({relevant_conferences})
+  
+  For each paper:
+  - Title, authors, year, venue
+  - Key contribution (1-2 sentences)
+  - How it applies to THIS system specifically
+  - Link/DOI
+  
+  ### Open Questions Raised
+  - {Techniques that could apply but need codebase analysis to confirm}
+```
+
+### Parallel Execution + 2-Action Rule
+
+- Launch up to 7 agents in parallel (Claude Code batch limit)
+- After every 2 returns, update findings.md with their results
+- Include wave metadata on every section
+- Accumulate open questions in a dedicated section
+
+---
+
+## Reflection Point (Between Waves)
+
+After all Wave 1 agents return, main Claude reads the FULL findings.md and writes a reflection:
+
+```markdown
+## Wave 1 Reflection
+<!-- source: main-claude, wave: 1-reflection, timestamp: {ISO} -->
+
+### What We Now Understand Well
+- {Area 1}: {summary of understanding, confidence: high}
+- {Area 2}: {summary}
+
+### Open Questions (Candidates for Wave 2)
+1. {Question from Agent 2's open questions — needs codebase agent}
+2. {Question from Agent 5's open questions — needs web search}
+3. {Contradiction: Agent 1 says X, Agent 4 says Y — needs resolution}
+4. {Shallow area: only surface-level understanding of {topic}}
+5. {Gap found but package search not done — needs ecosystem agent}
+
+### Contradictions to Resolve
+- {Agent X says A, Agent Y says B} → Wave 2 agent mission
+
+### Diminishing Returns Check
+- {Are the remaining questions significant enough to justify Wave 2?}
+- {Or can they be resolved during gap identification?}
+
+### Decision: {Launch Wave 2 with {M} agents / Proceed to Gap Identification}
+```
+
+### Decision Criteria for Wave 2
+
+Launch Wave 2 if ANY of:
+- There are contradictions between agents that affect gap analysis
+- A major system aspect was discovered but not deeply investigated
+- Package/build-vs-buy gaps were identified but not researched
+- The domain has academic research that hasn't been explored
+- An agent discovered something that changes the scope (e.g., "this is actually a distributed system, not a monolith")
+
+Proceed to gaps if:
+- Open questions are minor details, not structural
+- Additional agents would return information we mostly already have
+- The system is simple enough that 1 wave was comprehensive
+
+---
+
+## Wave 2: Targeted Follow-Up
+
+### Mission Generation
+
+Wave 2 missions come DIRECTLY from the reflection's open questions. They are NOT repeated from Wave 1.
+
+Examples:
+- "Wave 1 found MCP integration but didn't analyze lifecycle. Read mcp_singleton.py and mcp_adapter_manager.py specifically."
+- "Wave 1 found 3 competitors. Search PyPI for the specific guardrails packages they use."
+- "Wave 1 agents disagree on auth approach. Read auth-related files and determine: custom JWT or library?"
+- "Wave 1 identified a query caching gap. Search for: 'semantic query cache python {current_year}' and evaluate pgvector vs Vectara."
+
+### Agent Context
+
+Wave 2 agents receive findings.md which now includes:
+- Wave 0 quick scan results
+- ALL Wave 1 agent findings
+- Wave 1 reflection (with specific open questions)
+
+This means Wave 2 agents have FULL CONTEXT of what's known. They don't repeat work.
+
+### Fewer, More Focused
+
+Wave 2 typically has 2-4 agents (vs 5-8 in Wave 1). Each has a surgical mission.
+
+### After Wave 2
+
+Repeat the reflection. If significant unknowns remain → Wave 3 (rare, 1-2 agents). Usually 2 waves is sufficient.
+
+---
+
+## Gap Identification
+
+When the research loop exits, main Claude reads the complete findings.md (all waves + reflections) and produces gap files.
+
+### For Existing Systems
+
+**current-state/ files** — one per major aspect discovered:
+- File names derived from findings, NOT a template
+- Each file is focused (~150-300 lines)
+- Quantitative data: line counts, file counts, dependency counts
+
+**gaps/ files** — tiered by severity:
+- `tier1-blockers.md` — blocks new work
+- `tier2-table-stakes.md` — industry expects it
+- `tier3-differentiators.md` — competitive edge
+- `tier4-nice-to-have.md` — future
+- `infrastructure-gaps.md` — deployment, scaling, monitoring
+- Additional files as findings warrant
+
+**Build-vs-buy draft** — list of capabilities where existing packages might work
+
+### For Greenfield
+
+- `architecture/` draft files
+- `gaps/` files (what to build vs buy)
+- Technology decision list
+
+### Gap Identification Also Iterates
+
+After writing gaps, re-read them:
+- "Do these gaps reveal research I should have done?"
+- "Are there packages that solve these gaps?"
+- "Did I miss competitor capabilities?"
+
+If yes: launch 1-2 ultra-targeted agents (mini Wave 3), update findings, revise gaps.
+
+---
+
+## Edge Cases
+
+| Case | Handling |
+|------|----------|
+| Tiny project (<500 lines) | Wave 0 + small Wave 1 (2-3 agents). Skip Wave 2 — not enough complexity. |
+| Huge monorepo | Wave 0 identifies key modules. Wave 1 agents focus per-module. Wave 2 investigates cross-module issues. |
+| Pure greenfield (no code) | Skip codebase agents entirely. Ecosystem-only waves. |
+| Unfamiliar domain | Academic research agent in Wave 1. If papers found, Wave 2 digs deeper into applicable techniques. |
+| Agent discovers scope change | (e.g., "this is also a data pipeline") Wave 2 adds agents for the newly discovered scope. |
+| All agents return shallow results | Reflection catches this. Wave 2 goes deeper on the most critical areas rather than broad. |
+
+---
+
+## Self-Termination
+
+The loop exits when the reflection determines:
+1. No significant open questions remain
+2. Additional agents would return diminishing information
+3. Findings are comprehensive enough to produce gap analysis
+4. Maximum 3 waves reached (hard limit to prevent infinite research)
+
+The default for most projects: Wave 0 + Wave 1 + Reflection + Wave 2 + Gap ID. Two passes cover 90%+ of projects.

@@ -29,11 +29,21 @@ def main() -> int:
         return 0
 
     progress_file = planning_dir / "progress.md"
+    findings_file = planning_dir / "findings.md"
+
+    messages = []
     if progress_file.exists():
-        print(
-            "[deep-plan] Update progress.md with what you just completed. "
-            "If this finishes the current step, mark it done and note any errors encountered."
+        messages.append(
+            "Update progress.md with what you just completed. "
+            "If this finishes the current step, mark it done and note any errors."
         )
+    if findings_file.exists():
+        messages.append(
+            "If you have new research results, update findings.md with them (2-Action Rule)."
+        )
+
+    if messages:
+        print(f"[deep-plan] {' '.join(messages)}")
 
     return 0
 
