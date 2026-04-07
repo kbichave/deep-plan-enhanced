@@ -307,8 +307,6 @@ _SKIP_STEPS_AFTER_FIRST = {"detailed-interview", "save-interview"}
 
 # Steps requiring human interaction — pre-closed in autonomous mode
 _HUMAN_INTERACTIVE_STEPS = {
-    "detailed-interview",
-    "save-interview",
     "user-review",
     "context-check-pre-review",
     "context-check-pre-split",
@@ -445,6 +443,19 @@ def create_autonomous_workflow(
                     f"Review discovery findings from {discovery_findings}. "
                     "Conduct focused research only on phase-specific topics."
                 )
+            if task_id == "detailed-interview":
+                description = (
+                    "SELF-INTERVIEW: Launch two subagents — one as interviewer "
+                    "(reads interview-protocol.md, asks probing questions about "
+                    "this phase), one as stakeholder (answers using discovery "
+                    f"findings from {discovery_findings} and the phase spec). "
+                    "Write the Q&A transcript. Do NOT ask a human."
+                )
+            if task_id == "save-interview":
+                description = (
+                    "Save the self-interview transcript to claude-interview.md. "
+                    "The interview was conducted by subagents, not a human."
+                )
 
             tracker.create(
                 namespaced_id,
@@ -453,11 +464,9 @@ def create_autonomous_workflow(
                 depends_on=step_deps,
             )
 
-            # Pre-close all human-interactive steps
+            # Pre-close human-interactive steps (but NOT interview — handled by self-interview)
             if task_id in _HUMAN_INTERACTIVE_STEPS:
                 reason = "Skipped: autonomous mode (no human review)"
-                if not is_first and task_id in _SKIP_STEPS_AFTER_FIRST:
-                    reason = "Skipped: interview completed in discovery phase"
                 tracker.close(namespaced_id, reason)
 
             prev_step_id = namespaced_id

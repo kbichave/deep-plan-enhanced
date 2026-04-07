@@ -57,8 +57,8 @@ class TestAutonomousWorkflow:
         state = auto_tracker._load()
         assert state["epic"]["context"]["autonomous"] is True
 
-    def test_human_steps_pre_closed_in_all_phases(self, auto_tracker):
-        """Every human-interactive step should be closed across all phases."""
+    def test_review_steps_pre_closed_in_all_phases(self, auto_tracker):
+        """User-review and context-check steps should be pre-closed."""
         state = auto_tracker._load()
         for phase in ["P01", "P02", "P03"]:
             for step_id in _HUMAN_INTERACTIVE_STEPS:
@@ -68,14 +68,32 @@ class TestAutonomousWorkflow:
                     f"{namespaced} should be pre-closed but is {issue['status']}"
                 )
 
+    def test_interview_steps_remain_open(self, auto_tracker):
+        """Interview steps should be open — handled by self-interview, not skipped."""
+        state = auto_tracker._load()
+        for phase in ["P01", "P02", "P03"]:
+            for step_id in ("detailed-interview", "save-interview"):
+                namespaced = f"{phase}-{step_id}"
+                issue = state["issues"][namespaced]
+                assert issue["status"] == "open", (
+                    f"{namespaced} should be open for self-interview but is {issue['status']}"
+                )
+
+    def test_interview_description_says_self_interview(self, auto_tracker):
+        """Interview step description should instruct self-interview, not human."""
+        issue = auto_tracker.show("P01-detailed-interview")
+        assert "SELF-INTERVIEW" in issue["description"]
+        assert "Do NOT ask a human" in issue["description"]
+
     def test_non_human_steps_remain_open(self, auto_tracker):
         """Steps like research-decision and generate-plan should still be open."""
-        non_human = {"research-decision", "execute-research", "write-spec",
-                     "generate-plan", "external-review", "integrate-feedback",
+        non_human = {"research-decision", "execute-research",
+                     "detailed-interview", "save-interview",
+                     "write-spec", "generate-plan",
+                     "external-review", "integrate-feedback",
                      "apply-tdd", "create-section-index", "generate-section-tasks",
                      "write-sections", "final-verification", "output-summary"}
         state = auto_tracker._load()
-        # Check P01 (first phase) — all non-human steps should be open
         for step_id in non_human:
             namespaced = f"P01-{step_id}"
             issue = state["issues"][namespaced]
@@ -93,29 +111,29 @@ class TestAutonomousWorkflow:
         assert "phase-P02" not in ready_ids
         assert "phase-P03" not in ready_ids
 
-    def test_walkthrough_skips_human_steps(self, auto_tracker):
-        """Walk through P01 — human steps should already be closed, not blocking."""
-        # Open phase-P01
+    def test_walkthrough_interview_then_spec(self, auto_tracker):
+        """Walk through P01 — interview is self-interview (open), then write-spec."""
         auto_tracker.close("phase-P01", "Starting P01")
 
-        # Walk forward: research-decision should be ready
-        ready_ids = {i["id"] for i in auto_tracker.ready()}
-        assert "P01-research-decision" in ready_ids
-
-        # Close research steps
         auto_tracker.close("P01-research-decision", "done")
         auto_tracker.close("P01-execute-research", "done")
 
-        # interview steps are pre-closed, so write-spec should be ready
+        # Interview steps are open (self-interview), not pre-closed
+        ready_ids = {i["id"] for i in auto_tracker.ready()}
+        assert "P01-detailed-interview" in ready_ids
+
+        auto_tracker.close("P01-detailed-interview", "self-interview done")
+        auto_tracker.close("P01-save-interview", "transcript saved")
+
         ready_ids = {i["id"] for i in auto_tracker.ready()}
         assert "P01-write-spec" in ready_ids
 
     def test_user_review_skipped_so_tdd_follows_integrate(self, auto_tracker):
         """After integrate-feedback, apply-tdd should be ready (user-review pre-closed)."""
         auto_tracker.close("phase-P01", "go")
-        # Close through to integrate-feedback
         chain = [
             "P01-research-decision", "P01-execute-research",
+            "P01-detailed-interview", "P01-save-interview",
             "P01-write-spec", "P01-generate-plan",
             "P01-external-review", "P01-integrate-feedback",
         ]

@@ -9,7 +9,7 @@ compatibility: Requires uv (Python 3.11+), completed deep-discovery audit with p
 
 Autonomous end-to-end: plan every phase, then implement every phase. No human interaction.
 
-Skips: interviews, user review, context checks. Keeps: research, spec writing, external LLM review, TDD, section splitting, implementation.
+Skips: user review, context checks. Replaces human interview with AI self-interview. Keeps: research, spec writing, external LLM review, TDD, section splitting, implementation.
 
 ## First Actions
 
@@ -59,7 +59,9 @@ Walk the tracker. For each phase, the remaining (non-skipped) steps are:
 |------|-----------|
 | Research Decision | Read `references/research-protocol.md`. Pick research topics from the phase spec. |
 | Execute Research | Launch codebase + web research subagents. Later phases: review discovery findings instead. |
-| Write Spec | Combine phase spec + research into `claude-spec.md` |
+| Detailed Interview | **Self-interview via subagents** (see below) |
+| Save Interview | Write self-interview transcript to `claude-interview.md` |
+| Write Spec | Combine phase spec + research + interview into `claude-spec.md` |
 | Generate Plan | Read `references/plan-writing.md`. Write `claude-plan.md` |
 | External Review | Read `references/external-review.md`. Run external LLM review based on review_mode. |
 | Integrate Feedback | Update plan with review feedback |
@@ -72,6 +74,59 @@ Walk the tracker. For each phase, the remaining (non-skipped) steps are:
 
 After a phase's output-summary closes, close the phase issue itself.
 
+### Self-Interview Protocol
+
+Instead of asking a human, launch two subagents:
+
+**Interviewer agent** — prompt:
+```
+You are a senior technical interviewer. Read the interview protocol at
+{plugin_root}/references/interview-protocol.md. Read the phase spec at
+{phase_spec_path}. Ask 5-8 probing questions about requirements,
+constraints, edge cases, and integration points for this phase.
+Output ONLY the questions, numbered.
+```
+
+**Stakeholder agent** — prompt:
+```
+You are the project stakeholder. You have deep knowledge of this system
+from the discovery audit. Read ALL findings at {discovery_findings}/.
+For each question below, give a concrete, specific answer based on
+what the discovery found. If the discovery didn't cover something,
+say "Not covered in discovery — recommend investigating."
+
+Questions:
+{interviewer_output}
+```
+
+Write the combined Q&A to `claude-interview.md`.
+
+### Internal Review Loop
+
+After generating `claude-plan.md` (and integrating any external LLM feedback), run an internal quality check before proceeding:
+
+**Reviewer agent** — prompt:
+```
+You are a critical plan reviewer. Read the phase spec at {phase_spec_path}
+and the generated plan at {planning_dir}/claude-plan.md.
+
+Check:
+1. Does every requirement from the spec have a corresponding section in the plan?
+2. Are there gaps — things the spec asks for that the plan doesn't address?
+3. Are there contradictions between the plan and the discovery findings?
+4. Is the plan implementable as written, or does it hand-wave critical details?
+5. Will the plan achieve the stated end goal of this phase?
+
+Output a JSON object: {"pass": true/false, "issues": ["issue1", ...]}
+```
+
+If the reviewer returns `"pass": false`:
+1. Fix each issue in `claude-plan.md`
+2. Re-run the reviewer (max 2 iterations)
+3. If still failing after 2 fixes, log issues and proceed
+
+This replaces user-review with automated quality assurance.
+
 ## Phase 2: Implement All Phases
 
 After ALL phases are planned, implement each phase in dependency order:
@@ -81,9 +136,40 @@ For each phase directory (containing `sections/index.md`):
 2. For each section in dependency order:
    - Read the section spec from `sections/section-NN-*.md`
    - Implement the code changes described
+   - **Run internal code review** (see below)
    - Run tests after each section
    - Write results to `impl-progress.md`
 3. After all sections pass: write `impl-summary.md`
+
+### Internal Code Review (per section)
+
+After implementing a section, launch a **reviewer subagent**:
+
+```
+You are a senior code reviewer. Review the changes for section
+"{section_name}" against these criteria:
+
+1. ANTI-PATTERNS: bare except, mutable default args, god classes,
+   deep nesting (>3 levels), magic numbers, copy-paste duplication
+2. SECURITY: SQL injection, command injection, XSS, hardcoded secrets,
+   path traversal, unsafe deserialization
+3. CORRECTNESS: off-by-one errors, race conditions, resource leaks
+   (unclosed files/connections), unhandled edge cases (empty, null, 0)
+4. DESIGN: single responsibility violations, tight coupling, missing
+   error handling at system boundaries, unclear naming
+5. SPEC COMPLIANCE: does the implementation fully address what the
+   section spec requires?
+
+Changed files: {list of files modified}
+Section spec: {section spec content}
+
+Output JSON: {"pass": true/false, "issues": [{"severity": "high|medium|low", "file": "...", "line": N, "issue": "..."}]}
+```
+
+If `"pass": false` and any `"severity": "high"`:
+1. Fix the high-severity issues
+2. Re-run the reviewer (max 2 iterations)
+3. Log remaining medium/low issues to `impl-findings.md`
 
 ## Tracker Operations
 

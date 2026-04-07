@@ -58,18 +58,48 @@ Also read corresponding test stubs from `claude-plan-tdd.md` if it exists.
 3. **Log errors** — add rows to Error Log in `impl-progress.md`
 4. **3-strike rule** — if same error occurs 3 times, ask the user
 
-### D. Quality Gate
+### D. Internal Code Review
+
+After implementation, before closing the section, launch a **reviewer subagent**:
+
+```
+You are a senior code reviewer. Review the changes made for section
+"{section_name}" against these criteria:
+
+1. ANTI-PATTERNS: bare except, mutable default args, god classes,
+   deep nesting (>3 levels), magic numbers, copy-paste duplication
+2. SECURITY: SQL injection, command injection, XSS, hardcoded secrets,
+   path traversal, unsafe deserialization
+3. CORRECTNESS: off-by-one errors, race conditions, resource leaks
+   (unclosed files/connections), unhandled edge cases (empty, null, 0)
+4. DESIGN: single responsibility violations, tight coupling, missing
+   error handling at system boundaries, unclear naming
+5. SPEC COMPLIANCE: does the implementation fully address what the
+   section spec requires?
+
+Changed files: {list of files modified}
+Section spec: {section spec content}
+
+Output JSON: {"pass": true/false, "issues": [{"severity": "high|medium|low", "file": "...", "line": N, "issue": "..."}]}
+```
+
+If `"pass": false` and any `"severity": "high"`:
+1. Fix the high-severity issues
+2. Re-run the reviewer (max 2 iterations)
+3. Log remaining medium/low issues to `impl-findings.md`
+
+### E. Quality Gate
 1. Run tests: `{test_command from PROJECT_CONFIG}`
 2. Check for `TODO`, `FIXME`, `raise NotImplementedError` in changed files
 3. Verify section spec is fully addressed
 
-### E. Update Progress
+### F. Update Progress
 1. Check off section in `impl-progress.md`: `- [ ]` → `- [x]`
 2. Update phase status in `impl-task-plan.md`
 3. Call `tracker.close(section_id, reason)` to mark complete
 4. Log decisions to `impl-findings.md`
 
-### F. Next Section
+### G. Next Section
 Call `tracker.ready()` for next unblocked section. Repeat until all done.
 
 ## Final Verification
