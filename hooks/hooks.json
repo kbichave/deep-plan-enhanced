@@ -33,7 +33,7 @@
     ],
     "SubagentStop": [
       {
-        "matcher": "deep-plan-enhanced:section-writer",
+        "matcher": "section-writer",
         "hooks": [
           {
             "type": "command",
@@ -42,7 +42,7 @@
         ]
       },
       {
-        "matcher": "deep-plan-enhanced:audit-doc-writer",
+        "matcher": "audit-doc-writer",
         "hooks": [
           {
             "type": "command",

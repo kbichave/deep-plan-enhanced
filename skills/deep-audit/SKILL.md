@@ -332,11 +332,22 @@ operations/     — How to run it (deployment, testing, infra)
 strategy/       — Why and what order (competitor research, enablement)
 ```
 
-Launch parallel audit-doc-writer subagents — one per file. Each receives:
+Launch parallel audit-doc-writer subagents — one per file:
+
+```
+Task(
+  subagent_type: "audit-doc-writer",
+  prompt: "Read {prompt_file} and execute the instructions."
+)
+```
+
+Each prompt file provides:
 - Relevant sections of findings.md (filtered by topic metadata)
 - Interview transcript
 - Auto-gaps relevant to their topic
 - Focused brief: "Write {filename} covering {specific_topics}"
+
+The SubagentStop hook automatically writes the output to the correct file path.
 
 **Eval-on-Write Quality Gate:** After each subagent returns and the hook writes the file, evaluate the output:
 
