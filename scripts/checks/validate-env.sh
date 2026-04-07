@@ -51,6 +51,14 @@ if ! command -v uv &> /dev/null; then
     exit 5
 fi
 
+# Check: bd (beads) — optional enhancement for audit trail + multi-agent support
+if command -v bd &> /dev/null; then
+    beads_available="true"
+else
+    beads_available="false"
+    warnings+=("bd (beads) not installed. Optional: install beads for audit trail + multi-agent support")
+fi
+
 # Load config values
 config_file="${PLUGIN_ROOT}/config.json"
 alert_if_missing="true"
@@ -230,5 +238,5 @@ elif [ "$openai_auth" = "true" ]; then
     review_available="openai_only"
 fi
 
-echo "{\"valid\": $valid, \"errors\": $errors_json, \"warnings\": $warnings_json, \"gemini_auth\": $gemini_auth, \"openai_auth\": $openai_auth, \"review_available\": \"$review_available\", \"plugin_root\": \"$PLUGIN_ROOT\"}"
+echo "{\"valid\": $valid, \"errors\": $errors_json, \"warnings\": $warnings_json, \"gemini_auth\": $gemini_auth, \"openai_auth\": $openai_auth, \"review_available\": \"$review_available\", \"plugin_root\": \"$PLUGIN_ROOT\", \"beads_available\": $beads_available}"
 exit $exit_code

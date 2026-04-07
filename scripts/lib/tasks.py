@@ -7,16 +7,6 @@ Provides native dependency tracking, persistence, and subagent visibility.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import StrEnum
-from typing import Self
-
-
-class TaskStatus(StrEnum):
-    """Status values for tasks."""
-
-    PENDING = "pending"
-    IN_PROGRESS = "in_progress"
-    COMPLETED = "completed"
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -212,114 +202,6 @@ TASK_DEFINITIONS: dict[str, TaskDefinition] = {
 }
 
 
-def create_context_tasks(
-    plugin_root: str,
-    planning_dir: str,
-    initial_file: str,
-    review_mode: str,
-) -> list[dict]:
-    """Create individual context tasks with values in subject field.
-
-    Each context item becomes its own task:
-    - Subject contains the key=value (visible in task list after compaction)
-    - All blocked by output-summary (stay pending until workflow ends)
-
-    Args:
-        plugin_root: Path to plugin root directory
-        planning_dir: Path to planning directory
-        initial_file: Path to initial spec file
-        review_mode: How plan review is performed (external_llm, opus_subagent, skip)
-
-    Returns:
-        List of task dicts ready for TaskCreate
-    """
-    context_items = [
-        ("context-plugin-root", f"plugin_root={plugin_root}"),
-        ("context-planning-dir", f"planning_dir={planning_dir}"),
-        ("context-initial-file", f"initial_file={initial_file}"),
-        ("context-review-mode", f"review_mode={review_mode}"),
-    ]
-
-    return [
-        {
-            "id": task_id,
-            "subject": value,  # VALUE is in subject for visibility
-            "description": "Session context item",
-            "activeForm": "Context",
-            "status": TaskStatus.PENDING,
-            "blockedBy": TASK_DEPENDENCIES[task_id],
-        }
-        for task_id, value in context_items
-    ]
-
-
-def generate_expected_tasks(
-    resume_step: int,
-    plugin_root: str,
-    planning_dir: str,
-    initial_file: str,
-    review_mode: str,
-) -> list[dict]:
-    """Generate expected task states based on file state.
-
-    Returns list of task dicts for ALL workflow tasks. Status is derived
-    from the resume_step (which is inferred from file existence):
-    - Steps < resume_step -> "completed"
-    - Step == resume_step -> "in_progress"
-    - Steps > resume_step -> "pending"
-
-    Claude compares these expected tasks against TaskList and reconciles:
-    - Task doesn't exist -> TaskCreate
-    - Task exists but wrong status -> TaskUpdate
-    - Task exists with correct status -> no action
-
-    Args:
-        resume_step: The step we're resuming from (or 6 for fresh start)
-        plugin_root: Path to plugin root directory
-        planning_dir: Path to planning directory
-        initial_file: Path to initial spec file
-        review_mode: How plan review is performed
-
-    Returns:
-        List of task dicts with id, subject, description, activeForm, status, blockedBy
-    """
-    expected: list[dict] = []
-
-    # Add context tasks first (always pending until workflow ends)
-    # Each context item is a separate task with VALUE in subject for visibility
-    expected.extend(
-        create_context_tasks(
-            plugin_root=plugin_root,
-            planning_dir=planning_dir,
-            initial_file=initial_file,
-            review_mode=review_mode,
-        )
-    )
-
-    # Add workflow tasks
-    for step_num, task_id in sorted(TASK_IDS.items()):
-        task_def = TASK_DEFINITIONS[task_id]
-
-        # Determine status based on resume_step
-        if step_num < resume_step:
-            status = TaskStatus.COMPLETED
-        elif step_num == resume_step:
-            status = TaskStatus.IN_PROGRESS
-        else:
-            status = TaskStatus.PENDING
-
-        expected.append({
-            "id": task_id,
-            "subject": task_def.subject,
-            "description": task_def.description,
-            "activeForm": task_def.active_form,
-            "status": status,
-            "blockedBy": TASK_DEPENDENCIES[task_id],
-        })
-
-    return expected
-
-
 # ============================================================================
 # AUDIT WORKFLOW DEFINITIONS
 # ============================================================================
@@ -432,47 +314,3 @@ AUDIT_TASK_DEFINITIONS: dict[str, TaskDefinition] = {
 }
 
 
-def generate_expected_audit_tasks(
-    resume_step: int,
-    plugin_root: str,
-    planning_dir: str,
-    initial_file: str,
-    review_mode: str,
-) -> list[dict]:
-    """Generate expected task states for audit workflow.
-
-    Same pattern as generate_expected_tasks but uses AUDIT_* definitions.
-    """
-    expected: list[dict] = []
-
-    # Context tasks (same structure as deep-plan)
-    expected.extend(
-        create_context_tasks(
-            plugin_root=plugin_root,
-            planning_dir=planning_dir,
-            initial_file=initial_file,
-            review_mode=review_mode,
-        )
-    )
-
-    # Audit workflow tasks
-    for step_num, task_id in sorted(AUDIT_TASK_IDS.items()):
-        task_def = AUDIT_TASK_DEFINITIONS[task_id]
-
-        if step_num < resume_step:
-            status = TaskStatus.COMPLETED
-        elif step_num == resume_step:
-            status = TaskStatus.IN_PROGRESS
-        else:
-            status = TaskStatus.PENDING
-
-        expected.append({
-            "id": task_id,
-            "subject": task_def.subject,
-            "description": task_def.description,
-            "activeForm": task_def.active_form,
-            "status": status,
-            "blockedBy": AUDIT_TASK_DEPENDENCIES[task_id],
-        })
-
-    return expected

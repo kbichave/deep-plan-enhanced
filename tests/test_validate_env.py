@@ -120,3 +120,36 @@ class TestValidateEnv:
 
         # Should be null when no auth found
         assert output["gemini_auth"] is None
+
+    def test_beads_available_field_present_in_output(self, run_script):
+        """JSON output must include 'beads_available' as a boolean."""
+        result = run_script()
+        output = json.loads(result.stdout)
+        assert "beads_available" in output
+        assert isinstance(output["beads_available"], bool)
+
+    def test_beads_available_true_when_bd_on_path(self, run_script):
+        """When bd is on PATH, beads_available should be true."""
+        import shutil
+        if shutil.which("bd") is None:
+            pytest.skip("bd not installed on this machine")
+        result = run_script()
+        output = json.loads(result.stdout)
+        assert output["beads_available"] is True
+
+    def test_missing_bd_produces_warning_not_error(self, run_script):
+        """Missing bd should appear in warnings, not errors."""
+        result = run_script()
+        output = json.loads(result.stdout)
+        if not output["beads_available"]:
+            warning_text = " ".join(output["warnings"])
+            assert "bd" in warning_text.lower() or "beads" in warning_text.lower()
+            error_text = " ".join(output["errors"])
+            assert "beads" not in error_text.lower()
+
+    def test_missing_bd_does_not_change_exit_code(self, run_script):
+        """Missing bd must not cause a non-zero exit code by itself."""
+        result = run_script()
+        output = json.loads(result.stdout)
+        if output["valid"]:
+            assert result.returncode == 0

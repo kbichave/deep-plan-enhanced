@@ -138,3 +138,41 @@ Your job is to transform the inputs into a coherent plan:
 
 **Resolve conflicts:** If inputs disagree, use your judgment and document the decision.
 
+---
+
+## Anti-Goals
+
+Every plan MUST include an **Anti-Goals** section (typically section 2, after Background). Anti-goals define what the implementation explicitly will NOT do. They prevent scope creep and give the implementer clear boundaries.
+
+### Why Anti-Goals Matter
+
+Without anti-goals, implementers (human or LLM) fill ambiguity with assumptions -- usually by building more than needed. Anti-goals transform implicit scope into explicit decisions.
+
+### Format
+
+The Anti-Goals section should be a bullet list. Each item starts with **"Do NOT"** followed by a clear boundary and a brief rationale:
+
+```markdown
+## Anti-Goals
+
+- **Do NOT require external binaries** -- the plugin must work with only `uv`.
+- **Do NOT replace markdown content files** -- findings.md, claude-plan.md stay as files.
+- **Do NOT build a full issue tracker** -- this is a minimal dependency graph, not Jira.
+```
+
+### What Makes a Good Anti-Goal
+
+- **Specific and testable**: "Do NOT require external binaries" is verifiable. "Keep it simple" is not.
+- **Addresses a real temptation**: If nobody would think to do it, it doesn't need to be an anti-goal.
+- **States the boundary AND the reason**: The reason prevents someone from re-litigating the decision later.
+
+### What Does NOT Belong in Anti-Goals
+
+- Features deferred to a future phase (those go in a "Deferred" or "Future Work" section)
+- Obvious non-requirements ("Do NOT build a spaceship")
+- Vague platitudes ("Do NOT over-engineer" -- too subjective to be actionable)
+
+### Minimum Count
+
+Every plan should have at least 3 anti-goals. If you cannot think of 3, you have not thought carefully enough about what the system should NOT do. Re-read the spec and interview for scope temptations.
+

@@ -97,6 +97,14 @@ def load_session_config(planning_dir: Path) -> dict:
     if missing_keys:
         raise ConfigError(f"Session config missing required keys: {missing_keys}")
 
+    # Reject legacy configs (task_list_id without deepstate_epic_id)
+    if "task_list_id" in config and "deepstate_epic_id" not in config:
+        raise ConfigError(
+            "Legacy session config detected (has task_list_id, missing deepstate_epic_id). "
+            "This session was created with an older version. "
+            "Please start a new session with /deep-plan @spec.md."
+        )
+
     return config
 
 

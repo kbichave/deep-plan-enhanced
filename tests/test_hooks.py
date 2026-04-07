@@ -1,14 +1,27 @@
 """Tests for hook configuration and scripts.
 
 The section-writer hook tests are now in test_write_section_on_stop.py.
-This file contains tests for hooks.json configuration validity.
+This file contains tests for hooks.json configuration validity and
+truncation guard behavior.
 """
 
+from __future__ import annotations
+
+import importlib.util
 import json
 import re
+import sys
 from pathlib import Path
 
 import pytest
+
+# Import truncation guard from hook script
+_hook_path = Path(__file__).parent.parent / "scripts" / "hooks" / "impl-post-tool-use.py"
+_spec = importlib.util.spec_from_file_location("impl_post_tool_use", _hook_path)
+_hook_mod = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_hook_mod)
+check_truncation = _hook_mod.check_truncation
+CRITICAL_FILES = _hook_mod.CRITICAL_FILES
 
 
 class TestHooksJsonConfig:
@@ -114,3 +127,70 @@ class TestHooksJsonConfig:
         assert any("capture-session-id.py" in cmd for cmd in commands), (
             "SessionStart should reference capture-session-id.py"
         )
+
+
+class TestTruncationGuard:
+    """Tests for the PostToolUse truncation guard."""
+
+    def test_detects_size_reduction_in_critical_files(self, tmp_path):
+        """Truncation guard warns when a critical file shrinks by >50%."""
+        plan_file = tmp_path / "claude-plan.md"
+        plan_file.write_text("x" * 5000)
+        # Seed the cache with the original size
+        cache = {"claude-plan.md": 5000}
+        (tmp_path / ".file-sizes.json").write_text(json.dumps(cache))
+        # Shrink the file
+        plan_file.write_text("x" * 500)
+        warnings = check_truncation(tmp_path)
+        assert len(warnings) == 1
+        assert "claude-plan.md" in warnings[0]
+        assert "shrank" in warnings[0]
+
+    def test_allows_normal_edits(self, tmp_path):
+        """Small reductions (<50%) should not trigger a warning."""
+        plan_file = tmp_path / "claude-plan.md"
+        plan_file.write_text("x" * 5000)
+        cache = {"claude-plan.md": 5000}
+        (tmp_path / ".file-sizes.json").write_text(json.dumps(cache))
+        plan_file.write_text("x" * 4800)
+        warnings = check_truncation(tmp_path)
+        assert len(warnings) == 0
+
+    def test_allows_growth(self, tmp_path):
+        """File growth should not trigger a warning."""
+        plan_file = tmp_path / "claude-plan.md"
+        plan_file.write_text("x" * 7000)
+        cache = {"claude-plan.md": 5000}
+        (tmp_path / ".file-sizes.json").write_text(json.dumps(cache))
+        warnings = check_truncation(tmp_path)
+        assert len(warnings) == 0
+
+    def test_ignores_non_critical_files(self, tmp_path):
+        """Non-critical files should be ignored even if they shrink."""
+        other_file = tmp_path / "random.py"
+        other_file.write_text("x" * 5000)
+        cache = {"random.py": 5000}
+        (tmp_path / ".file-sizes.json").write_text(json.dumps(cache))
+        other_file.write_text("x" * 100)
+        warnings = check_truncation(tmp_path)
+        assert len(warnings) == 0
+
+    def test_creates_cache_on_first_run(self, tmp_path):
+        """First run with no cache should create it without warnings."""
+        plan_file = tmp_path / "claude-plan.md"
+        plan_file.write_text("x" * 3000)
+        warnings = check_truncation(tmp_path)
+        assert len(warnings) == 0
+        assert (tmp_path / ".file-sizes.json").exists()
+
+
+class TestSessionStartNoTracker:
+    """Verify SessionStart hook does NOT call tracker or beads."""
+
+    def test_session_start_has_no_tracker_or_beads_references(self):
+        """capture-session-id.py must not reference deepstate, beads, or bd prime."""
+        script = Path(__file__).parent.parent / "scripts" / "hooks" / "capture-session-id.py"
+        source = script.read_text()
+        forbidden = ["deepstate", "beads_sync", "bd prime", "tracker.prime", "DeepStateTracker"]
+        for term in forbidden:
+            assert term not in source, f"SessionStart hook must not reference '{term}'"

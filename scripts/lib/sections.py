@@ -79,8 +79,9 @@ def parse_manifest_block(content: str) -> dict:
         if not line:
             continue  # Skip empty lines
 
-        # Validate section name format
-        match = SECTION_NAME_PATTERN.match(line)
+        # Strip depends_on: suffix before validating name
+        name_part = line.split()[0] if line.split() else line
+        match = SECTION_NAME_PATTERN.match(name_part)
         if not match:
             return {
                 "success": False,
@@ -102,7 +103,7 @@ def parse_manifest_block(content: str) -> dict:
             }
 
         seen_numbers.add(section_num)
-        sections.append(line)
+        sections.append(name_part)
 
     if not sections:
         return {
@@ -129,6 +130,126 @@ def parse_manifest_block(content: str) -> dict:
     return {
         "success": True,
         "sections": sections,
+        "error": None,
+        "warnings": warnings,
+    }
+
+
+def parse_manifest_with_deps(content: str) -> dict:
+    """Parse SECTION_MANIFEST with optional depends_on: syntax.
+
+    Returns:
+        dict with:
+        - success: bool
+        - sections: list of section names sorted by number
+        - dependencies: dict mapping section name to list of dependency names
+        - error: error message if failed, None otherwise
+        - warnings: list of warning messages
+    """
+    warnings = []
+
+    # Find manifest block
+    start_idx = content.find(MANIFEST_START)
+    if start_idx == -1:
+        return {
+            "success": False,
+            "sections": [],
+            "dependencies": {},
+            "error": "No SECTION_MANIFEST block found in index.md.",
+            "warnings": warnings,
+        }
+
+    end_idx = content.find(MANIFEST_END, start_idx)
+    if end_idx == -1:
+        return {
+            "success": False,
+            "sections": [],
+            "dependencies": {},
+            "error": "SECTION_MANIFEST block not closed (missing END_MANIFEST -->)",
+            "warnings": warnings,
+        }
+
+    block_content = content[start_idx + len(MANIFEST_START):end_idx].strip()
+    if not block_content:
+        return {
+            "success": False,
+            "sections": [],
+            "dependencies": {},
+            "error": "SECTION_MANIFEST block is empty.",
+            "warnings": warnings,
+        }
+
+    # First pass: collect all section names and raw deps
+    raw_entries = []  # [(name, [dep_names])]
+    all_names = set()
+
+    for line_num, line in enumerate(block_content.split('\n'), start=1):
+        line = line.strip()
+        if not line:
+            continue
+
+        parts = line.split()
+        name_part = parts[0]
+
+        match = SECTION_NAME_PATTERN.match(name_part)
+        if not match:
+            return {
+                "success": False,
+                "sections": [],
+                "dependencies": {},
+                "error": f"Invalid section name on line {line_num}: '{name_part}'.",
+                "warnings": warnings,
+            }
+
+        deps = []
+        if len(parts) > 1:
+            dep_token = parts[1]
+            if dep_token.startswith("depends_on:"):
+                dep_str = dep_token[len("depends_on:"):]
+                deps = [d.strip() for d in dep_str.split(",") if d.strip()]
+            else:
+                return {
+                    "success": False,
+                    "sections": [],
+                    "dependencies": {},
+                    "error": f"Unexpected token on line {line_num}: '{dep_token}'.",
+                    "warnings": warnings,
+                }
+
+        all_names.add(name_part)
+        raw_entries.append((name_part, deps))
+
+    # Second pass: validate deps
+    for name, deps in raw_entries:
+        for dep in deps:
+            if dep == name:
+                return {
+                    "success": False,
+                    "sections": [],
+                    "dependencies": {},
+                    "error": f"Self-dependency: '{name}' depends on itself.",
+                    "warnings": warnings,
+                }
+            if dep not in all_names:
+                return {
+                    "success": False,
+                    "sections": [],
+                    "dependencies": {},
+                    "error": f"Dependency '{dep}' referenced by '{name}' does not exist in manifest.",
+                    "warnings": warnings,
+                }
+
+    # Build sorted sections list and dependencies dict
+    sections = sorted(
+        [name for name, _ in raw_entries],
+        key=lambda x: int(SECTION_NAME_PATTERN.match(x).group(1)),
+    )
+    dependencies = {name: deps for name, deps in raw_entries}
+
+    return {
+        "success": True,
+        "sections": sections,
+        "dependencies": dependencies,
         "error": None,
         "warnings": warnings,
     }

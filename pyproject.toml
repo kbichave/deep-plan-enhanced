@@ -26,4 +26,5 @@ addopts = "-v --tb=short"
 pythonpath = ["."]
 markers = [
     "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
+    "requires_bd: tests requiring the bd (beads) CLI to be installed",
 ]

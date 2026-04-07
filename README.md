@@ -1,10 +1,12 @@
 # deep-plan-enhanced
 
-A Claude Code plugin with three skills for discovering, planning, and implementing complex systems.
+A Claude Code plugin with four skills for discovering, planning, and implementing complex systems.
 
 **`/deep-discovery`** deeply researches an existing system or greenfield project. Produces a comprehensive discovery directory with focused per-topic files, dynamic phase specs, granular build-vs-buy analysis, and a migration roadmap. Researches competitors, packages, and academic papers before asking questions.
 
 **`/deep-plan`** takes one piece of the audit roadmap and creates a detailed implementation blueprint through research, stakeholder interviews, multi-LLM review, and TDD-oriented section splitting.
+
+**`/deep-plan-all`** batch-plans all phases from a discovery audit. Parses the phasing-overview dependency graph and orchestrates `/deep-plan` for each phase in the correct order.
 
 **`/deep-implement`** executes that blueprint section by section with disk-based progress tracking, quality gates, and hooks that prevent goal drift.
 
@@ -16,7 +18,7 @@ A Claude Code plugin with three skills for discovering, planning, and implementi
 claude plugin add --from github:kbichave/deep-plan-enhanced
 ```
 
-This registers all three skills and hooks automatically.
+This registers all four skills and hooks automatically.
 
 ### As Local Skills
 
@@ -32,6 +34,16 @@ cd ~/.claude/plugins/deep-plan-enhanced && uv sync
 # "enabledPlugins": { "deep-plan-enhanced@kbichave-plugins": true }
 ```
 
+### Optional: Beads Integration
+
+[Beads](https://github.com/plastic-labs/beads) provides richer issue tracking alongside the built-in deepstate tracker. Install it for optional sync:
+
+```bash
+brew install beads
+```
+
+When `bd` is on PATH, the plugin automatically mirrors issue operations to beads. If beads is unavailable or fails, the plugin continues normally — beads is never required.
+
 ## The Workflow
 
 ```
@@ -41,11 +53,14 @@ cd ~/.claude/plugins/deep-plan-enhanced && uv sync
 /deep-plan @phase-spec.md     Research -> Interview -> Plan -> Review -> TDD -> Sections
                                (produces the implementation blueprint for one phase)
 
+/deep-plan-all @phases/       Parses phasing-overview.md -> Plans all phases in dependency order
+                               (batch orchestration of /deep-plan across phases)
+
 /deep-implement @plan-dir/    Reads sections -> Implements in dependency order
                                (writes the code, tracks progress, enforces quality)
 ```
 
-The three skills form a complete pipeline: **discover → plan → implement**.
+The four skills form a complete pipeline: **discover → plan (or plan-all) → implement**.
 
 ## What's Inside
 
@@ -88,6 +103,17 @@ A 22-step planning pipeline that produces a complete implementation blueprint be
 
 **Session isolation:** Concurrent `/deep-plan` sessions write to `sessions/<prefix>/` subdirectories — no file overwrites.
 
+### /deep-plan-all
+
+Batch-plans all phases from a `/deep-discovery` audit. Parses `phasing-overview.md` dependency graph (ASCII `-->` or Unicode `──→` arrows), creates per-phase planning workflows with correct inter-phase dependencies, and executes them sequentially.
+
+| Feature | Description |
+|---------|-------------|
+| **Dependency graph parsing** | Reads `## Dependency Graph` section from phasing-overview.md |
+| **Parallel phase detection** | Independent phases (e.g., P02 and P03 both depending on P01) are not mutually blocked |
+| **Interview skip** | Later phases pre-close interview steps (already done in discovery) |
+| **Lighter research** | Later phases review discovery findings instead of launching new research subagents |
+
 ### /deep-implement
 
 Executes the blueprint section by section with discipline hooks.
@@ -115,6 +141,7 @@ Executes the blueprint section by section with discipline hooks.
 - [uv](https://docs.astral.sh/uv/) (Python package manager)
 - Python 3.11+
 - (Optional) Gemini API key or OpenAI API key for external plan review
+- (Optional) [Beads](https://github.com/plastic-labs/beads) (`brew install beads`) for enhanced issue tracking
 
 ## What's Different From the Originals
 
@@ -145,7 +172,7 @@ This project combines patterns from [deep-plan](https://github.com/piercelamb/de
 uv run pytest tests/ -q
 ```
 
-331 tests covering task storage, session isolation, section generation, hook behavior, and transcript parsing.
+398 tests covering deepstate tracker, beads sync, workflow factory, session setup, section generation, hook behavior, integration lifecycle, and transcript parsing.
 
 ## Acknowledgments
 
