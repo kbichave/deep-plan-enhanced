@@ -71,12 +71,18 @@ Then run: `bash <found_path>`
 **If `valid == false`** (fatal error — uv not installed, plugin root not found):
 - Show errors to the user and stop the workflow. These must be fixed before proceeding.
 
-**If `valid == true`**, check `review_available`:
+**If `valid == true`**, determine `review_mode` from `review_available`:
 
-- `"full"` → Both Gemini and OpenAI configured → `review_mode = "external_llm"`
-- `"gemini_only"` or `"openai_only"` → Partial LLM config → `review_mode = "external_llm"` (uses whichever is available)
-- `"none"` → No external LLMs → Ask the user:
+**IMPORTANT:** `review_available` is NOT the same as `review_mode`. Map it:
 
+| `review_available` | `review_mode` |
+|---|---|
+| `"full"` | `"external_llm"` |
+| `"gemini_only"` | `"external_llm"` |
+| `"openai_only"` | `"external_llm"` |
+| `"none"` | Ask the user (see below) |
+
+If `review_available == "none"`:
 ```
 AskUserQuestion:
   question: "No external LLMs configured (see warnings). How should plan review be handled?"
@@ -89,10 +95,12 @@ AskUserQuestion:
       description: "Proceed without any external plan review"
 ```
 
-**Store the choice as `review_mode`:**
+**Store the user's choice as `review_mode`:**
 - "Use Claude Opus" → `review_mode = "opus_subagent"`
 - "Skip external review" → `review_mode = "skip"`
 - "Exit to configure LLMs" → Stop workflow
+
+**`review_mode` must be one of: `external_llm`, `opus_subagent`, `skip`.** Never pass `review_available` values (like `"none"` or `"full"`) as `--review-mode`.
 
 If there are warnings, show them briefly so the user knows what's missing:
 ```

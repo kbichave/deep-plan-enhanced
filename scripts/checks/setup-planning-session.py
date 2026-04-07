@@ -485,9 +485,8 @@ def main():
     )
     parser.add_argument(
         "--review-mode",
-        choices=["external_llm", "opus_subagent", "skip"],
         default="external_llm",
-        help="How plan review should be performed (default: external_llm)"
+        help="How plan review should be performed: external_llm, opus_subagent, or skip (default: external_llm)"
     )
     parser.add_argument(
         "--force",
@@ -505,6 +504,13 @@ def main():
         help="Workflow type: plan (default) or audit"
     )
     args = parser.parse_args()
+
+    # Normalize review_mode: map invalid values to opus_subagent
+    # Claude sometimes passes validate-env.sh's review_available value ("none", "full")
+    # instead of the resolved review_mode
+    VALID_REVIEW_MODES = {"external_llm", "opus_subagent", "skip"}
+    if args.review_mode not in VALID_REVIEW_MODES:
+        args.review_mode = "opus_subagent"
 
     file_path = Path(args.file)
     plugin_root = Path(args.plugin_root)
