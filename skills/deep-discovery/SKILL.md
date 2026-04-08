@@ -57,16 +57,25 @@ Store `planning_dir`, `initial_file`, `plugin_root` from the output.
 
 ## Workflow Loop
 
-After setup, execute steps by following the tracker:
+After setup, execute steps by following the tracker via CLI:
 
+```bash
+# Get next unblocked step(s)
+uv run ${plugin_root}/scripts/checks/tracker-cli.py --state-dir ${planning_dir}/.deepstate ready
+
+# Close a completed step
+uv run ${plugin_root}/scripts/checks/tracker-cli.py --state-dir ${planning_dir}/.deepstate close "<issue-id>" "reason for closing"
+
+# Recover context after compaction
+uv run ${plugin_root}/scripts/checks/tracker-cli.py --state-dir ${planning_dir}/.deepstate prime
 ```
-1. Load tracker from {planning_dir}/.deepstate/
-2. Call tracker.ready() → returns next unblocked step(s)
-3. Read the step's reference file (see table below)
-4. Execute the step following the reference instructions
-5. Call tracker.close(issue_id, reason)
-6. Repeat from 2 until all steps are closed
-```
+
+Loop:
+1. Call `ready` → returns next unblocked step(s)
+2. Read the step's reference file (see table below)
+3. Execute the step following the reference instructions
+4. Call `close` with the issue ID and reason
+5. Repeat from 1 until all steps are closed
 
 ## Reference File Index
 
@@ -86,13 +95,13 @@ After setup, execute steps by following the tracker:
 ## Guardrails
 
 1. **Always read the reference file for the current step before executing.**
-2. **Never skip a step — tracker.ready() determines order.**
-3. **Always close the step with tracker.close() after completing it.**
+2. **Never skip a step — tracker-cli ready determines order.**
+3. **Always close the step with tracker-cli close after completing it.**
 
 ## Resuming After Compaction
 
 After `/clear` or context compaction:
 1. Read `{planning_dir}/.deepstate/state.json` to restore tracker state
-2. Call `tracker.ready()` — returns exactly where to continue
+2. Call `tracker-cli ready` — returns exactly where to continue
 3. Each step's issue description includes reference file pointers and "Resume Here" hints
 4. Reference files are at `{plugin_root}/references/`

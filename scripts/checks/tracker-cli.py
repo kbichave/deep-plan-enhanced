@@ -28,8 +28,9 @@ def cmd_ready(tracker: DeepStateTracker, args: argparse.Namespace) -> int:
 
 
 def cmd_close(tracker: DeepStateTracker, args: argparse.Namespace) -> int:
+    reason = args.reason_flag or args.reason or "Closed"
     try:
-        result = tracker.close(args.issue_id, args.reason)
+        result = tracker.close(args.issue_id, reason)
         print(json.dumps(result, indent=2))
         return 0
     except (KeyError, ValueError) as e:
@@ -70,7 +71,8 @@ def main():
 
     close_p = sub.add_parser("close", help="Close an issue")
     close_p.add_argument("issue_id", help="Issue ID to close")
-    close_p.add_argument("reason", help="Reason for closing")
+    close_p.add_argument("reason", nargs="?", default=None, help="Reason for closing (positional)")
+    close_p.add_argument("--reason", dest="reason_flag", default=None, help="Reason for closing (named flag)")
 
     show_p = sub.add_parser("show", help="Show issue details")
     show_p.add_argument("issue_id", help="Issue ID to show")

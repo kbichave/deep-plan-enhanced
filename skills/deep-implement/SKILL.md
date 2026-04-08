@@ -5,7 +5,7 @@ description: Executes deep-plan implementation plans section by section with pro
 
 # Deep Implement
 
-Executes a deep-plan blueprint section by section, driven by tracker.ready().
+Executes a deep-plan blueprint section by section, driven by tracker-cli ready.
 
 ## First Actions
 
@@ -37,16 +37,29 @@ Create in the planning directory (skip if they already exist for resume):
 
 ### 4. Check for Resume
 
-Load the tracker from `{planning_dir}/.deepstate/`. Call `tracker.ready()` to find the next unblocked section. If sections are already complete (closed in tracker), skip them.
+Load the tracker from `{planning_dir}/.deepstate/`. Use the tracker CLI to find the next unblocked section:
+
+```bash
+# Get next unblocked step(s)
+uv run ${plugin_root}/scripts/checks/tracker-cli.py --state-dir ${planning_dir}/.deepstate ready
+
+# Close a completed step
+uv run ${plugin_root}/scripts/checks/tracker-cli.py --state-dir ${planning_dir}/.deepstate close "<issue-id>" "reason for closing"
+
+# Recover context after compaction
+uv run ${plugin_root}/scripts/checks/tracker-cli.py --state-dir ${planning_dir}/.deepstate prime
+```
+
+If sections are already complete (closed in tracker), skip them.
 
 Print: `Sections: {total} total, {completed} done, {remaining} remaining`
 
 ## Execution Loop
 
-For each section returned by `tracker.ready()`:
+For each section returned by `tracker-cli ready`:
 
 ### A. Check Dependencies
-Verify all blocking sections are closed in the tracker. `tracker.ready()` handles this automatically — it only returns unblocked sections.
+Verify all blocking sections are closed in the tracker. `tracker-cli ready` handles this automatically — it only returns unblocked sections.
 
 ### B. Read Section Spec
 Read `sections/{section-name}.md` — the implementation specification from deep-plan.
@@ -96,11 +109,11 @@ If `"pass": false` and any `"severity": "high"`:
 ### F. Update Progress
 1. Check off section in `impl-progress.md`: `- [ ]` → `- [x]`
 2. Update phase status in `impl-task-plan.md`
-3. Call `tracker.close(section_id, reason)` to mark complete
+3. Call `tracker-cli close "<section-id>" "reason"` to mark complete
 4. Log decisions to `impl-findings.md`
 
 ### G. Next Section
-Call `tracker.ready()` for next unblocked section. Repeat until all done.
+Call `tracker-cli ready` for next unblocked section. Repeat until all done.
 
 ## Final Verification
 
@@ -112,13 +125,13 @@ After all sections complete:
 ## Guardrails
 
 1. **Always read the reference file for the current step before executing.** For /deep-implement, the "reference" is `sections/{section-name}.md`.
-2. **Never skip a step — tracker.ready() determines order.**
-3. **Always close the step with tracker.close() after completing it.**
+2. **Never skip a step — tracker-cli ready determines order.**
+3. **Always close the step with tracker-cli close after completing it.**
 
 ## Resuming After Compaction
 
 After `/clear` or context compaction:
 1. Read `{planning_dir}/.deepstate/state.json` to restore tracker state
-2. Call `tracker.ready()` — returns exactly where to continue
+2. Call `tracker-cli ready` — returns exactly where to continue
 3. Read `impl-progress.md` for completed sections and error history
 4. Read `impl-findings.md` for accumulated technical decisions

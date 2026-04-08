@@ -51,16 +51,25 @@ The setup script initializes `.deepstate/` and creates the phase workflow hierar
 
 ## Workflow Loop
 
-After setup, execute phases by following the tracker:
+After setup, execute phases by following the tracker via CLI:
 
+```bash
+# Get next unblocked step(s)
+uv run ${plugin_root}/scripts/checks/tracker-cli.py --state-dir ${planning_dir}/.deepstate ready
+
+# Close a completed step
+uv run ${plugin_root}/scripts/checks/tracker-cli.py --state-dir ${planning_dir}/.deepstate close "<issue-id>" "reason for closing"
+
+# Recover context after compaction
+uv run ${plugin_root}/scripts/checks/tracker-cli.py --state-dir ${planning_dir}/.deepstate prime
 ```
-1. Load tracker from {planning_dir}/.deepstate/
-2. Call tracker.ready() → returns next unblocked step(s)
-3. If a phase issue: print phase banner, continue
-4. If a step issue: read reference file, execute, close
-5. When a phase's output-summary closes, close the phase issue
-6. Repeat from 2 until all phases complete
-```
+
+Loop:
+1. Call `ready` → returns next unblocked step(s)
+2. If a phase issue: print phase banner, continue
+3. If a step issue: read reference file, execute, close
+4. When a phase's output-summary closes, close the phase issue
+5. Repeat from 1 until all phases complete
 
 ### Phase-Specific Behaviors
 
@@ -81,13 +90,13 @@ After setup, execute phases by following the tracker:
 ## Guardrails
 
 1. **Always read the reference file for the current step before executing.**
-2. **Never skip a step — tracker.ready() determines order.**
-3. **Always close the step with tracker.close() after completing it.**
+2. **Never skip a step — tracker-cli ready determines order.**
+3. **Always close the step with tracker-cli close after completing it.**
 
 ## Resuming After Compaction
 
 After `/clear` or context compaction:
 1. Read `{planning_dir}/.deepstate/state.json` to restore tracker state
-2. Call `tracker.ready()` — returns exactly where to continue
+2. Call `tracker-cli ready` — returns exactly where to continue
 3. Each step issue description includes reference file pointers
 4. Reference files are at `{plugin_root}/references/`

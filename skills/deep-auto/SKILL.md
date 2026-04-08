@@ -199,8 +199,8 @@ uv run ${plugin_root}/scripts/checks/tracker-cli.py --state-dir ${planning_dir}/
 ## Guardrails
 
 1. **Always read the reference file for the current step before executing.**
-2. **Never skip a step — tracker.ready() determines order.**
-3. **Always close the step with tracker.close() after completing it.**
+2. **Never skip a step — tracker-cli ready determines order.**
+3. **Always close the step with tracker-cli close after completing it.**
 4. **No human interaction — do not ask questions, do not wait for approval.**
 5. **If external LLM review fails (no API key), skip it and continue.**
 
@@ -208,6 +208,6 @@ uv run ${plugin_root}/scripts/checks/tracker-cli.py --state-dir ${planning_dir}/
 
 After `/clear` or context compaction:
 1. Read `{planning_dir}/.deepstate/state.json` to restore tracker state
-2. Call `tracker.ready()` — returns exactly where to continue
+2. Call `tracker-cli ready` — returns exactly where to continue
 3. Each step issue description includes reference file pointers
 4. Reference files are at `{plugin_root}/references/`
