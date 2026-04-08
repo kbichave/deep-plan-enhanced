@@ -11,6 +11,8 @@ from lib.workflow import (
     create_discovery_workflow,
     create_section_issues,
     create_plan_all_workflow,
+    create_autonomous_workflow,
+    _toposort,
     _REFERENCE_FILES,
     _AUDIT_REFERENCE_FILES,
     _CONTEXT_TASK_IDS,
@@ -267,6 +269,36 @@ class TestCreateSectionIssues:
 # ── create_plan_all_workflow ────────────────────────────────────────
 
 
+class TestToposort:
+    def test_linear_chain(self):
+        deps = {"P00": [], "P01": ["P00"], "P02": ["P01"]}
+        assert _toposort(deps) == ["P00", "P01", "P02"]
+
+    def test_forward_reference(self):
+        """P01 depends on P08 — lower number depends on higher."""
+        deps = {"P00": [], "P01": ["P08"], "P08": ["P00"]}
+        result = _toposort(deps)
+        assert result.index("P00") < result.index("P08")
+        assert result.index("P08") < result.index("P01")
+
+    def test_diamond(self):
+        deps = {"P00": [], "P01": ["P00"], "P02": ["P00"], "P03": ["P01", "P02"]}
+        result = _toposort(deps)
+        assert result.index("P00") < result.index("P01")
+        assert result.index("P00") < result.index("P02")
+        assert result.index("P01") < result.index("P03")
+        assert result.index("P02") < result.index("P03")
+
+    def test_deterministic_order_for_independent_phases(self):
+        deps = {"P03": [], "P01": [], "P02": []}
+        assert _toposort(deps) == ["P01", "P02", "P03"]
+
+    def test_cycle_raises(self):
+        deps = {"P00": ["P01"], "P01": ["P00"]}
+        with pytest.raises(ValueError, match="Cycle"):
+            _toposort(deps)
+
+
 class TestCreatePlanAllWorkflow:
     def test_requires_valid_phases_dir(self, tracker):
         """parse_phasing_overview raises FileNotFoundError for missing dir."""
@@ -277,3 +309,38 @@ class TestCreatePlanAllWorkflow:
                 plugin_root="/fake",
                 discovery_findings="/fake",
             )
+
+    def test_forward_dependency_succeeds(self, tracker, tmp_path):
+        """P01 depends on P08 — must not fail with 'dependency does not exist'."""
+        phases_dir = tmp_path / "phases"
+        phases_dir.mkdir()
+        (phases_dir / "phasing-overview.md").write_text(
+            "## Dependency Graph\n\n"
+            "P00 ──→ P08 ──→ P01\n"
+        )
+        create_plan_all_workflow(
+            tracker,
+            phases_dir=str(phases_dir),
+            plugin_root="/fake",
+            discovery_findings="/fake",
+        )
+        p01 = tracker.show("phase-P01")
+        assert "phase-P08" in p01["depends_on"]
+
+    def test_autonomous_forward_dependency_succeeds(self, tmp_path):
+        """Same forward-dependency bug fix applies to autonomous workflow."""
+        tracker = DeepStateTracker(state_dir=tmp_path / ".deepstate")
+        phases_dir = tmp_path / "phases"
+        phases_dir.mkdir()
+        (phases_dir / "phasing-overview.md").write_text(
+            "## Dependency Graph\n\n"
+            "P00 ──→ P08 ──→ P01\n"
+        )
+        create_autonomous_workflow(
+            tracker,
+            phases_dir=str(phases_dir),
+            plugin_root="/fake",
+            discovery_findings="/fake",
+        )
+        p01 = tracker.show("phase-P01")
+        assert "phase-P08" in p01["depends_on"]

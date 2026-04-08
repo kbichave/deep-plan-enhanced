@@ -9,6 +9,7 @@ logic — only issue creation.
 
 from __future__ import annotations
 
+import bisect
 from pathlib import Path
 
 from lib.deepstate import DeepStateTracker
@@ -243,6 +244,47 @@ def create_section_issues(
     return mapping
 
 
+def _toposort(deps: dict[str, list[str]]) -> list[str]:
+    """Topological sort so dependencies are created before dependents.
+
+    Falls back to alphabetical order for phases at the same depth.
+    Raises ValueError on cycles.
+    """
+    in_degree: dict[str, int] = {node: 0 for node in deps}
+    for node, predecessors in deps.items():
+        in_degree.setdefault(node, 0)
+        for p in predecessors:
+            in_degree.setdefault(p, 0)
+            in_degree[node] = in_degree.get(node, 0)
+
+    # Recount properly
+    in_degree = {node: 0 for node in deps}
+    for node, predecessors in deps.items():
+        in_degree[node] = len(predecessors)
+        for p in predecessors:
+            in_degree.setdefault(p, 0)
+
+    queue = sorted(n for n, d in in_degree.items() if d == 0)
+    result: list[str] = []
+
+    while queue:
+        node = queue.pop(0)
+        result.append(node)
+        # Find nodes that depend on this one and decrement their in-degree
+        for candidate, predecessors in deps.items():
+            if node in predecessors:
+                in_degree[candidate] -= 1
+                if in_degree[candidate] == 0:
+                    # Insert in sorted position to keep deterministic order
+                    bisect.insort(queue, candidate)
+
+    if len(result) != len(in_degree):
+        missing = set(in_degree) - set(result)
+        raise ValueError(f"Cycle detected in phase dependencies: {missing}")
+
+    return result
+
+
 def parse_phasing_overview(phases_dir: str) -> dict[str, list[str]]:
     """Parse phasing-overview.md and return phase dependency graph.
 
@@ -336,11 +378,9 @@ def create_plan_all_workflow(
         "discovery_findings": discovery_findings,
     })
 
-    # Sort phases by ID for deterministic order
-    sorted_phases = sorted(phase_deps.keys())
+    # Topological sort so dependencies are created before dependents
+    sorted_phases = _toposort(phase_deps)
 
-    # Determine root phases (no dependencies) — first phase gets full workflow
-    root_phases = {p for p, d in phase_deps.items() if not d}
     is_first = True
 
     for phase_id in sorted_phases:
@@ -416,7 +456,7 @@ def create_autonomous_workflow(
         "autonomous": True,
     })
 
-    sorted_phases = sorted(phase_deps.keys())
+    sorted_phases = _toposort(phase_deps)
     is_first = True
 
     for phase_id in sorted_phases:
