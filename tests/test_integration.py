@@ -360,9 +360,11 @@ class TestNewFilesExist:
             "scripts/lib/deepstate.py",
             "scripts/lib/beads_sync.py",
             "scripts/lib/workflow.py",
+            "scripts/lib/research_topics.py",
             "scripts/checks/setup-session.py",
             "scripts/checks/generate-sections.py",
-            "skills/deep-plan-all/SKILL.md",
+            "scripts/checks/validate-coverage.py",
+            "skills/deep/SKILL.md",
         ]
         for rel_path in new_files:
             assert (plugin_root / rel_path).exists(), f"Missing new file: {rel_path}"
@@ -427,10 +429,7 @@ class TestPluginStructure:
             assert key in data
 
     def test_skill_exists(self, plugin_root):
-        assert (
-            (plugin_root / "SKILL.md").exists()
-            or (plugin_root / "skills" / "deep-plan" / "SKILL.md").exists()
-        )
+        assert (plugin_root / "skills" / "deep" / "SKILL.md").exists()
 
     def test_prompts_exist(self, plugin_root):
         assert (plugin_root / "prompts" / "plan_reviewer" / "system").exists()

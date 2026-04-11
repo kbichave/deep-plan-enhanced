@@ -137,10 +137,11 @@ class TestCreatePlanWorkflow:
 
 
 class TestCreateDiscoveryWorkflow:
-    def test_creates_10_step_issues(self, tracker, plan_context):
+    def test_creates_12_step_issues(self, tracker, plan_context):
+        # 10 original steps + topic-enumeration + coverage-validation = 12
         create_discovery_workflow(tracker, **plan_context)
         issues = tracker.list_issues()
-        assert len(issues) == 10
+        assert len(issues) == 12
 
     def test_epic_title_contains_spec_name(self, tracker, plan_context):
         title = create_discovery_workflow(tracker, **plan_context)
@@ -156,10 +157,26 @@ class TestCreateDiscoveryWorkflow:
             ]
             assert issue["depends_on"] == expected_deps
 
-    def test_deep_research_depends_on_quick_scan(self, tracker, plan_context):
+    def test_deep_research_depends_on_topic_enumeration(self, tracker, plan_context):
+        # deep-research now depends on topic-enumeration, not directly on quick-scan
         create_discovery_workflow(tracker, **plan_context)
         issue = tracker.show("deep-research")
+        assert "topic-enumeration" in issue["depends_on"]
+
+    def test_topic_enumeration_depends_on_quick_scan(self, tracker, plan_context):
+        create_discovery_workflow(tracker, **plan_context)
+        issue = tracker.show("topic-enumeration")
         assert "quick-scan" in issue["depends_on"]
+
+    def test_coverage_validation_depends_on_deep_research(self, tracker, plan_context):
+        create_discovery_workflow(tracker, **plan_context)
+        issue = tracker.show("coverage-validation")
+        assert "deep-research" in issue["depends_on"]
+
+    def test_auto_gaps_depends_on_coverage_validation(self, tracker, plan_context):
+        create_discovery_workflow(tracker, **plan_context)
+        issue = tracker.show("auto-gaps")
+        assert "coverage-validation" in issue["depends_on"]
 
     def test_descriptions_include_audit_reference_files(self, tracker, plan_context):
         create_discovery_workflow(tracker, **plan_context)

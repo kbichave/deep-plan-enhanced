@@ -41,7 +41,9 @@ _REFERENCE_FILES: dict[str, str] = {
 # Audit workflow reference files
 _AUDIT_REFERENCE_FILES: dict[str, str] = {
     "quick-scan": "audit-research-protocol.md",
+    "topic-enumeration": "audit-topic-enumeration.md",
     "deep-research": "audit-research-protocol.md",
+    "coverage-validation": "audit-coverage-validation.md",
     "stakeholder-interview": "audit-interview-protocol.md",
     "generate-audit-docs": "audit-doc-writing.md",
     "generate-build-vs-buy": "audit-build-vs-buy.md",

@@ -1,11 +1,15 @@
-"""Tests for SKILL.md structural invariants.
+"""Tests for skills/deep/SKILL.md structural invariants.
 
-Each rewritten SKILL.md must:
+The unified /deep skill must:
 1. Contain the 3 inline guardrails
-2. Reference the correct reference files
+2. Reference the correct reference files for all modes
 3. Include the tracker.ready() -> execute -> close loop
-4. Stay under 150 lines
+4. Stay under 300 lines (it's a unified skill replacing 5)
 5. Preserve frontmatter (name, description)
+6. Reference setup-session.py and generate-sections.py
+7. Include --workflow audit flag
+8. Reference .deepstate for implement mode
+9. Not reference old script names
 """
 
 from __future__ import annotations
@@ -15,11 +19,7 @@ import pathlib
 import pytest
 
 PLUGIN_ROOT = pathlib.Path(__file__).resolve().parents[1]
-SKILL_PATHS = [
-    PLUGIN_ROOT / "skills" / "deep-plan" / "SKILL.md",
-    PLUGIN_ROOT / "skills" / "deep-discovery" / "SKILL.md",
-    PLUGIN_ROOT / "skills" / "deep-implement" / "SKILL.md",
-]
+SKILL_PATH = PLUGIN_ROOT / "skills" / "deep" / "SKILL.md"
 
 GUARDRAILS = [
     "Always read the reference file for the current step before executing",
@@ -28,38 +28,42 @@ GUARDRAILS = [
 ]
 
 
-@pytest.fixture(params=SKILL_PATHS, ids=lambda p: p.parent.name)
-def skill_content(request):
-    """Read a SKILL.md and return its text."""
-    return request.param.read_text()
+@pytest.fixture
+def skill_content():
+    """Read skills/deep/SKILL.md and return its text."""
+    return SKILL_PATH.read_text()
 
 
-def test_each_skill_md_contains_three_inline_guardrails(skill_content):
-    """Each SKILL.md must contain the three guardrail phrases."""
+def test_skill_md_exists():
+    """The unified skills/deep/SKILL.md must exist."""
+    assert SKILL_PATH.exists(), f"Expected {SKILL_PATH} to exist"
+
+
+def test_skill_md_contains_three_inline_guardrails(skill_content):
+    """SKILL.md must contain the three guardrail phrases."""
     for guardrail in GUARDRAILS:
         assert guardrail in skill_content, f"Missing guardrail: {guardrail}"
 
 
-def test_each_skill_md_references_correct_reference_files(skill_content):
-    """Each SKILL.md must reference files from references/ or sections/."""
-    # deep-implement uses sections/ as its reference source
-    assert "references/" in skill_content or "sections/" in skill_content
+def test_skill_md_references_correct_reference_files(skill_content):
+    """SKILL.md must reference files from references/ for each mode."""
+    assert "references/" in skill_content
 
 
-def test_each_skill_md_has_tracker_ready_loop(skill_content):
-    """Each SKILL.md must describe the tracker.ready() loop."""
+def test_skill_md_has_tracker_ready_loop(skill_content):
+    """SKILL.md must describe the tracker.ready() loop."""
     assert "tracker.ready()" in skill_content
 
 
-def test_each_skill_md_has_tracker_close(skill_content):
-    """Each SKILL.md must reference tracker.close()."""
+def test_skill_md_has_tracker_close(skill_content):
+    """SKILL.md must reference tracker.close()."""
     assert "tracker.close(" in skill_content
 
 
-def test_each_skill_md_is_under_150_lines(skill_content):
-    """SKILL.md files must be concise routing layers."""
+def test_skill_md_is_under_300_lines(skill_content):
+    """Unified SKILL.md replaces 5 skills — budget is 300 lines."""
     lines = skill_content.split("\n")
-    assert len(lines) <= 150, f"SKILL.md has {len(lines)} lines, max is 150"
+    assert len(lines) <= 300, f"SKILL.md has {len(lines)} lines, max is 300"
 
 
 def test_frontmatter_preserved(skill_content):
@@ -69,46 +73,56 @@ def test_frontmatter_preserved(skill_content):
     assert "description:" in skill_content
 
 
-def test_deep_plan_references_setup_session():
-    """deep-plan SKILL.md must reference setup-session.py (new name)."""
-    content = (PLUGIN_ROOT / "skills" / "deep-plan" / "SKILL.md").read_text()
-    assert "setup-session.py" in content
+def test_references_setup_session(skill_content):
+    """SKILL.md must reference setup-session.py (used by plan/audit/plan-all/auto)."""
+    assert "setup-session.py" in skill_content
 
 
-def test_deep_plan_references_generate_sections():
-    """deep-plan SKILL.md must reference generate-sections.py."""
-    content = (PLUGIN_ROOT / "skills" / "deep-plan" / "SKILL.md").read_text()
-    assert "generate-sections.py" in content
+def test_references_generate_sections(skill_content):
+    """SKILL.md must reference generate-sections.py (used in plan mode)."""
+    assert "generate-sections.py" in skill_content
 
 
-def test_deep_discovery_passes_workflow_audit():
-    """deep-discovery SKILL.md must pass --workflow audit."""
-    content = (PLUGIN_ROOT / "skills" / "deep-discovery" / "SKILL.md").read_text()
-    assert '--workflow "audit"' in content
+def test_passes_workflow_audit_flag(skill_content):
+    """Discovery mode must pass --workflow audit to setup-session.py."""
+    assert '--workflow "audit"' in skill_content or "--workflow audit" in skill_content
 
 
-def test_deep_implement_reads_existing_deepstate():
-    """deep-implement should read existing .deepstate/ state."""
-    content = (PLUGIN_ROOT / "skills" / "deep-implement" / "SKILL.md").read_text()
-    assert ".deepstate" in content
+def test_implement_reads_existing_deepstate(skill_content):
+    """Implement mode must read existing .deepstate/ state."""
+    assert ".deepstate" in skill_content
 
 
-def test_no_skill_references_old_scripts():
-    """No SKILL.md should reference the old script names."""
+def test_no_old_script_names(skill_content):
+    """SKILL.md must not reference old script names."""
     old_names = ["setup-planning-session.py", "generate-section-tasks.py"]
-    for path in SKILL_PATHS:
-        content = path.read_text()
-        for old_name in old_names:
-            assert old_name not in content, (
-                f"{path.parent.name}/SKILL.md still references old script: {old_name}"
-            )
+    for old_name in old_names:
+        assert old_name not in skill_content, (
+            f"SKILL.md still references old script: {old_name}"
+        )
 
 
-def test_no_skill_references_position_based_tasks():
-    """No SKILL.md should reference TaskList or position-based tracking."""
-    for path in SKILL_PATHS:
-        content = path.read_text()
-        assert "TaskList" not in content, f"{path.parent.name}/SKILL.md references TaskList"
-        # deep-implement uses impl-progress.md (implementation tracking, not old workflow progress)
-        if "deep-implement" not in str(path):
-            assert "progress.md" not in content, f"{path.parent.name}/SKILL.md references progress.md"
+def test_no_position_based_tasks(skill_content):
+    """SKILL.md must not reference TaskList (old position-based tracking)."""
+    assert "TaskList" not in skill_content
+
+
+def test_old_skill_dirs_removed():
+    """Old per-mode skill directories must no longer exist."""
+    removed_dirs = ["deep-plan", "deep-discovery", "deep-implement", "deep-auto", "deep-plan-all"]
+    for dirname in removed_dirs:
+        path = PLUGIN_ROOT / "skills" / dirname
+        assert not path.exists(), (
+            f"Old skill directory still exists: skills/{dirname}/ — should have been removed"
+        )
+
+
+def test_all_modes_dispatched(skill_content):
+    """SKILL.md must dispatch all five modes."""
+    for mode in ("audit", "plan", "plan-all", "implement", "auto"):
+        assert mode in skill_content, f"Mode '{mode}' not mentioned in SKILL.md"
+
+
+def test_inline_prompt_handled(skill_content):
+    """SKILL.md must describe handling for inline text input."""
+    assert "auto-spec-synthesis" in skill_content or "inline" in skill_content.lower()

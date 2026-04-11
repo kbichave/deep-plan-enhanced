@@ -19,7 +19,7 @@ _spec.loader.exec_module(_mod)
 setup_session = _mod.setup_session
 determine_mode = _mod.determine_mode
 resolve_planning_dir = _mod.resolve_planning_dir
-find_existing_session_dir = _mod.find_existing_session_dir
+find_existing_session_dir = _mod._find_legacy_session
 is_legacy_config = _mod.is_legacy_config
 check_partial_setup = _mod.check_partial_setup
 
@@ -429,11 +429,14 @@ class TestResolvePlanningDir:
         result = resolve_planning_dir(tmp_path, "abcdef12")
         assert result == tmp_path
 
-    def test_no_session_id_falls_back_to_parent(self, tmp_path):
+    def test_no_session_id_uses_sessions_root(self, tmp_path):
         result = resolve_planning_dir(tmp_path, None)
-        assert result == tmp_path
+        # Without a session_id, falls into SESSIONS_ROOT under "default" prefix
+        assert str(_mod.SESSIONS_ROOT) in str(result)
+        assert "default" in str(result)
 
     def test_new_session_creates_subdirectory(self, tmp_path):
         result = resolve_planning_dir(tmp_path, "abcdef12-rest")
-        assert "sessions" in str(result)
+        # New sessions go to SESSIONS_ROOT, not inside the project tree
+        assert str(_mod.SESSIONS_ROOT) in str(result)
         assert "abcdef12" in str(result)

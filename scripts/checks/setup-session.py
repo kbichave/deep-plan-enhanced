@@ -9,9 +9,11 @@ Usage:
 """
 
 import argparse
+import hashlib
 import json
 import shutil
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -24,16 +26,57 @@ from lib.config import (
 from lib.deepstate import DeepStateTracker
 from lib.beads_sync import BeadsSyncTracker, detect_beads
 from lib.workflow import create_plan_workflow, create_discovery_workflow, create_plan_all_workflow, create_autonomous_workflow
+from lib.research_topics import index_session_in_mempalace
 
 
 VALID_REVIEW_MODES = {"external_llm", "opus_subagent", "skip"}
 
+# All session state lives here — project working trees stay clean.
+SESSIONS_ROOT = Path.home() / ".claude" / "marketplace" / "deep-plan-enhanced" / "sessions"
 
-def find_existing_session_dir(spec_parent: Path, session_id: str) -> Path | None:
-    """Find an existing session directory for this session ID.
 
-    Checks by prefix match first (fast path), then scans all session configs
-    for a matching session_id field.
+def project_slug(project_path: Path) -> str:
+    """Deterministic, human-readable slug for a project path.
+
+    Format: <dirname>-<6-char md5 prefix>
+    Example: my-api-a3f9c1
+    """
+    digest = hashlib.md5(str(project_path.resolve()).encode()).hexdigest()[:6]
+    return f"{project_path.name}-{digest}"
+
+
+def _update_session_index(slug: str, project_path: Path, session_prefix: str, workflow: str, initial_file: str) -> None:
+    """Append a session entry to SESSIONS_ROOT/<slug>/index.json (creates if absent)."""
+    index_path = SESSIONS_ROOT / slug / "index.json"
+    if index_path.exists():
+        try:
+            data = json.loads(index_path.read_text())
+        except (json.JSONDecodeError, OSError):
+            data = {}
+    else:
+        data = {}
+
+    data.setdefault("project_path", str(project_path.resolve()))
+    data.setdefault("slug", slug)
+    sessions = data.setdefault("sessions", [])
+
+    # Avoid duplicates if same prefix already recorded
+    if not any(s.get("prefix") == session_prefix for s in sessions):
+        sessions.append({
+            "prefix": session_prefix,
+            "created": datetime.now(timezone.utc).isoformat(),
+            "workflow": workflow,
+            "initial_file": str(initial_file),
+        })
+
+    index_path.write_text(json.dumps(data, indent=2))
+
+
+def _find_legacy_session(spec_parent: Path, session_id: str) -> Path | None:
+    """Check for a legacy session written into the old in-project location.
+
+    Checks by prefix match first, then scans all session configs for session_id.
+    Returns the path if found, None otherwise.
     """
     sessions_dir = spec_parent / "sessions"
     if not sessions_dir.exists():
@@ -58,36 +101,49 @@ def find_existing_session_dir(spec_parent: Path, session_id: str) -> Path | None
     return None
 
 
-def resolve_planning_dir(spec_parent: Path, session_id: str | None) -> Path:
-    """Resolve the planning directory with session isolation.
+def resolve_planning_dir(project_path: Path, session_id: str | None, spec_parent: Path | None = None) -> Path:
+    """Resolve the planning directory for a session.
 
-    Each session gets its own subdirectory under spec_parent/sessions/<8-char-prefix>/.
-    Legacy single-session layouts are detected and used directly.
+    New sessions are created under SESSIONS_ROOT/<slug>/<prefix>/ so the
+    project working tree stays clean.
+
+    Legacy sessions that already exist inside the project directory are
+    returned as-is so existing work is never lost.
     """
+    # --- Legacy detection: session already exists inside the project tree ---
+    # Check spec_parent (the old in-project location) for legacy markers.
+    _spec_parent = spec_parent or project_path
     legacy_file_markers = [
         "claude-research.md", "claude-plan.md", "claude-spec.md",
         "claude-interview.md", "claude-plan-tdd.md",
         "claude-integration-notes.md", SESSION_CONFIG_FILENAME,
     ]
     legacy_dir_markers = ["reviews", "sections"]
-    has_legacy = (
-        any((spec_parent / f).exists() for f in legacy_file_markers)
-        or any((spec_parent / d).is_dir() for d in legacy_dir_markers)
+    has_legacy_in_place = (
+        any((_spec_parent / f).exists() for f in legacy_file_markers)
+        or any((_spec_parent / d).is_dir() for d in legacy_dir_markers)
     )
-    if has_legacy:
-        return spec_parent
+    if has_legacy_in_place:
+        return _spec_parent
 
-    if not session_id:
-        return spec_parent
+    if session_id:
+        # Check for existing legacy session by ID inside project tree
+        legacy = _find_legacy_session(_spec_parent, session_id)
+        if legacy:
+            return legacy
 
-    existing = find_existing_session_dir(spec_parent, session_id)
-    if existing:
-        return existing
+    # --- New session: write to SESSIONS_ROOT ---
+    slug = project_slug(project_path)
+    prefix = session_id[:8] if session_id else "default"
 
-    prefix = session_id[:8]
-    planning_dir = spec_parent / "sessions" / prefix
-    planning_dir.mkdir(parents=True, exist_ok=True)
-    return planning_dir
+    # Check if this session already exists in SESSIONS_ROOT (resume case)
+    candidate = SESSIONS_ROOT / slug / prefix
+    if candidate.exists() and (candidate / SESSION_CONFIG_FILENAME).exists():
+        return candidate
+
+    # New session — create directory
+    candidate.mkdir(parents=True, exist_ok=True)
+    return candidate
 
 
 def is_legacy_config(config: dict) -> bool:
@@ -183,19 +239,37 @@ def setup_session(
     elif file_path.stat().st_size == 0:
         return {"success": False, "error": f"Spec file is empty: {file_path}", "mode": "error"}
 
+    # Derive the project root for slug computation.
+    # audit: file_path IS the project directory
+    # plan: file_path is a spec .md, project root is its parent
+    # plan-all/auto: file_path is the phases dir, project root is its parent
+    if file_path.is_dir():
+        project_path = file_path
+    else:
+        project_path = file_path.parent
+
     # Resolve planning directory
     if is_plan_all and file_path.is_dir():
-        # For plan-all/auto, state lives alongside the phases dir — no session nesting
+        # For plan-all/auto: check legacy location first, then SESSIONS_ROOT
         subdir = "auto" if workflow == "auto" else "plan-all"
-        planning_dir = file_path.parent / subdir
-        planning_dir.mkdir(parents=True, exist_ok=True)
+        legacy_dir = file_path.parent / subdir
+        if legacy_dir.exists() and (legacy_dir / ".deepstate" / "state.json").exists():
+            planning_dir = legacy_dir
+        else:
+            planning_dir = resolve_planning_dir(project_path, session_id)
     elif file_path.is_dir():
-        spec_parent = file_path / "audit"
-        spec_parent.mkdir(parents=True, exist_ok=True)
-        planning_dir = resolve_planning_dir(spec_parent, session_id)
+        # audit workflow: check legacy audit/ subdir first
+        legacy_audit = file_path / "audit"
+        if legacy_audit.exists() and any(
+            (legacy_audit / f).exists()
+            for f in ["claude-research.md", SESSION_CONFIG_FILENAME, ".deepstate"]
+        ):
+            spec_parent = legacy_audit
+            planning_dir = resolve_planning_dir(project_path, session_id, spec_parent=spec_parent)
+        else:
+            planning_dir = resolve_planning_dir(project_path, session_id)
     else:
-        spec_parent = file_path.parent
-        planning_dir = resolve_planning_dir(spec_parent, session_id)
+        planning_dir = resolve_planning_dir(project_path, session_id, spec_parent=file_path.parent)
 
     # Create or load session config
     try:
@@ -339,6 +413,28 @@ def setup_session(
     except OSError:
         pass
 
+    # Record session in the project index (best-effort, non-fatal)
+    try:
+        slug = project_slug(project_path)
+        prefix = session_id[:8] if session_id else "default"
+        _update_session_index(
+            slug=slug,
+            project_path=project_path,
+            session_prefix=prefix,
+            workflow=workflow,
+            initial_file=str(file_path),
+        )
+        # Mirror to MemPalace when available (semantic, cross-project lookup)
+        index_session_in_mempalace(
+            project_slug=slug,
+            session_prefix=prefix,
+            workflow=workflow,
+            initial_file=str(file_path),
+            planning_dir=str(planning_dir),
+        )
+    except Exception:
+        pass  # Index is a convenience feature; never block the workflow
+
     return {
         "success": True,
         "mode": "new",
@@ -349,6 +445,7 @@ def setup_session(
         "review_mode": review_mode,
         "epic_id": epic_title,
         "beads_available": beads_available,
+        "sessions_root": str(SESSIONS_ROOT),
         "message": f"Starting new {'audit' if is_audit else 'plan-all' if is_plan_all else 'planning'} session in: {planning_dir}",
     }
 

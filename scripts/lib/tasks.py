@@ -208,18 +208,20 @@ TASK_DEFINITIONS: dict[str, TaskDefinition] = {
 
 # Task IDs for audit workflow steps
 # Steps 1-3 are setup (not tracked as tasks)
-# Steps 4-13 are the main audit workflow
+# Steps 4-15 are the main audit workflow (4, 4.5, 5, 5.5 added for topic + coverage steps)
 AUDIT_TASK_IDS: dict[int, str] = {
     4: "quick-scan",
-    5: "deep-research",
-    6: "auto-gaps",
-    7: "stakeholder-interview",
-    8: "generate-audit-docs",
-    9: "generate-build-vs-buy",
-    10: "generate-phase-specs",
-    11: "external-review",
-    12: "user-review",
-    13: "output-summary",
+    5: "topic-enumeration",
+    6: "deep-research",
+    7: "coverage-validation",
+    8: "auto-gaps",
+    9: "stakeholder-interview",
+    10: "generate-audit-docs",
+    11: "generate-build-vs-buy",
+    12: "generate-phase-specs",
+    13: "external-review",
+    14: "user-review",
+    15: "output-summary",
 }
 
 AUDIT_TASK_ID_TO_STEP: dict[str, int] = {v: k for k, v in AUDIT_TASK_IDS.items()}
@@ -230,15 +232,17 @@ AUDIT_STEP_NAMES: dict[int, str] = {
     2: "Detect audit mode",
     3: "Setup session",
     4: "Quick scan",
-    5: "Deep research (parallel subagents)",
-    6: "Auto gap identification",
-    7: "Stakeholder interview",
-    8: "Generate audit documents",
-    9: "Generate build-vs-buy analysis",
-    10: "Generate phase specs",
-    11: "External LLM review",
-    12: "User review",
-    13: "Output summary",
+    5: "Topic enumeration (research coverage manifest)",
+    6: "Deep research (topic-assigned parallel subagents)",
+    7: "Coverage validation (gap agents for uncovered topics)",
+    8: "Auto gap identification",
+    9: "Stakeholder interview",
+    10: "Generate audit documents",
+    11: "Generate build-vs-buy analysis",
+    12: "Generate phase specs",
+    13: "External LLM review",
+    14: "User review",
+    15: "Output summary",
 }
 
 AUDIT_TASK_DEPENDENCIES: dict[str, list[str]] = {
@@ -247,14 +251,16 @@ AUDIT_TASK_DEPENDENCIES: dict[str, list[str]] = {
     "context-planning-dir": ["output-summary"],
     "context-initial-file": ["output-summary"],
     "context-review-mode": ["output-summary"],
-    # Main audit workflow
-    "quick-scan": [],  # Can start immediately
-    "deep-research": ["quick-scan"],
-    "auto-gaps": ["deep-research"],
-    "stakeholder-interview": ["auto-gaps"],  # Interview AFTER research (research-first)
+    # Main audit workflow — topic enumeration is the coverage contract before research
+    "quick-scan": [],
+    "topic-enumeration": ["quick-scan"],
+    "deep-research": ["topic-enumeration"],       # agents now assigned specific topics
+    "coverage-validation": ["deep-research"],     # gap agents for uncovered topics
+    "auto-gaps": ["coverage-validation"],
+    "stakeholder-interview": ["auto-gaps"],       # interview AFTER research (research-first)
     "generate-audit-docs": ["stakeholder-interview"],
-    "generate-build-vs-buy": ["generate-audit-docs"],  # Needs audit docs for context
-    "generate-phase-specs": ["generate-build-vs-buy"],  # Needs build-vs-buy decisions
+    "generate-build-vs-buy": ["generate-audit-docs"],  # needs audit docs for context
+    "generate-phase-specs": ["generate-build-vs-buy"],  # needs build-vs-buy decisions
     "external-review": ["generate-phase-specs"],
     "user-review": ["external-review"],
     "output-summary": ["user-review"],
@@ -263,22 +269,32 @@ AUDIT_TASK_DEPENDENCIES: dict[str, list[str]] = {
 AUDIT_TASK_DEFINITIONS: dict[str, TaskDefinition] = {
     "quick-scan": TaskDefinition(
         subject="Quick Scan",
-        description="Read audit-research-protocol.md. Launch 1 Explore agent for structural scan. Detect tech stack, domain, size.",
+        description="Read audit-research-protocol.md. Launch 1 Explore agent for structural scan. Detect tech stack, domain, size. Write scan-summary.md.",
         active_form="Running quick codebase scan",
+    ),
+    "topic-enumeration": TaskDefinition(
+        subject="Topic Enumeration",
+        description="Read audit-topic-enumeration.md. Simulate 3 perspectives (security auditor, new engineer, PM). Generate research-topics.yaml with 12-20 topics, each with id/category/priority/questions.",
+        active_form="Enumerating research topics",
     ),
     "deep-research": TaskDefinition(
         subject="Deep Research",
-        description="Read audit-research-protocol.md. Launch parallel agents (codebase + ecosystem). Update findings.md after every 2 returns.",
-        active_form="Running deep parallel research",
+        description="Read audit-research-protocol.md and research-topics.yaml. Assign 2-3 topics per agent. Each agent writes findings/<topic-id>-<slug>.md answering its assigned questions.",
+        active_form="Running topic-assigned parallel research",
+    ),
+    "coverage-validation": TaskDefinition(
+        subject="Coverage Validation",
+        description="Read audit-coverage-validation.md. Run validate-coverage.py. Spawn gap agents for uncovered topics. Loop until coverage ≥ 80% or no more topics can be covered.",
+        active_form="Validating research coverage",
     ),
     "auto-gaps": TaskDefinition(
         subject="Auto Gap Identification",
-        description="Read findings.md. Write current-state/ and gaps/ files. Draft build-vs-buy list.",
+        description="Read all findings/<topic-id>-*.md files. Write current-state/ and gaps/ files. Draft build-vs-buy list from coverage findings.",
         active_form="Identifying gaps from research",
     ),
     "stakeholder-interview": TaskDefinition(
         subject="Stakeholder Interview",
-        description="Read audit-interview-protocol.md. Present findings, expand scope, follow thread. Write interview.md.",
+        description="Read audit-interview-protocol.md. Present coverage map (research-topics.yaml), expand scope, follow thread. Write interview.md.",
         active_form="Conducting stakeholder interview",
     ),
     "generate-audit-docs": TaskDefinition(
