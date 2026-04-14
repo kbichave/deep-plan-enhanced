@@ -35,11 +35,17 @@ Parse JSON output. Store `plugin_root` and map `review_available` to `review_mod
 
 If `valid == false`: show errors and stop.
 
-### 1b. Check Mempalace
+### 1b. Check & Initialize Mempalace
 
-Test if the `mempalace` MCP is connected by calling `mcp__mempalace__mempalace_status`.
-- If it succeeds: set `mempalace_available = true`. Derive a **wing name** from the project directory name (e.g., `my-service` for `/path/to/my-service`).
-- If it fails or the tool is not available: set `mempalace_available = false`. Continue without it — mempalace is recommended but not required.
+1. Test if the `mempalace` MCP is connected by calling `mcp__mempalace__mempalace_status`.
+2. If the tool is not available or the call errors with a non-palace error: set `mempalace_available = false`. Continue without it.
+3. If the call returns `"No palace found"` or the palace has no wings for this project:
+   - Run `mempalace init <project_working_directory> --yes` via Bash (auto-accepts, non-interactive)
+   - Then run `mempalace mine <project_working_directory>` to seed the palace with project files
+   - Re-check status to confirm initialization succeeded
+4. If status succeeds: set `mempalace_available = true`. Derive a **wing name** from the project directory name (e.g., `my-service` for `/path/to/my-service`).
+
+This is fully automatic — never ask the user to initialize mempalace.
 
 ### 2. Resolve Input
 
