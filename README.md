@@ -114,8 +114,8 @@ Batch-plans all phases from a `/deep discovery` audit. Parses `phasing-overview.
 |---------|-------------|
 | **Dependency graph parsing** | Reads `## Dependency Graph` section from phasing-overview.md |
 | **Parallel phase detection** | Independent phases (e.g., P02 and P03 both depending on P01) are not mutually blocked |
-| **Interview skip** | Later phases pre-close interview steps (already done in discovery) |
-| **Lighter research** | Later phases review discovery findings instead of launching new research subagents |
+| **Discovery bridge** | Later phases read discovery findings (max 5 per phase), only research phase-specific gaps via `references/discovery-bridge.md` |
+| **Interview passthrough** | Discovery interview transcript passed to all phases as context for spec writing |
 
 ### /deep implement
 
@@ -211,6 +211,7 @@ Legacy sessions that already exist inside project directories are detected via f
 | `section-splitting.md` | Plan: section splitting with dependency graph |
 | `context-check.md` | Plan: context window management |
 | `experience-protocol.md` | All modes: mempalace recall, knowledge mining, proactive intelligence |
+| `discovery-bridge.md` | Plan-all/Auto: reuse discovery research + interview for non-first phases |
 
 ### Agent Definitions (`agents/`)
 

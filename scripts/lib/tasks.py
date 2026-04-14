@@ -156,7 +156,7 @@ TASK_DEFINITIONS: dict[str, TaskDefinition] = {
     ),
     "integrate-feedback": TaskDefinition(
         subject="Integrate External Feedback",
-        description="Write integration notes and update claude-plan.md",
+        description="Apply substantive review feedback directly to claude-plan.md",
         active_form="Integrating external feedback",
     ),
     "user-review": TaskDefinition(

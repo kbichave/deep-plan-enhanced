@@ -346,8 +346,9 @@ def parse_phasing_overview(phases_dir: str) -> dict[str, list[str]]:
     return deps
 
 
-# Steps to skip for phases after the first (interview already done in discovery)
-_SKIP_STEPS_AFTER_FIRST = {"detailed-interview", "save-interview"}
+# Steps to skip for phases after the first
+# Interview is no longer skipped — it uses discovery bridge passthrough instead
+_SKIP_STEPS_AFTER_FIRST: set[str] = set()
 
 # Steps requiring human interaction — pre-closed in autonomous mode
 _HUMAN_INTERACTIVE_STEPS = {
@@ -407,10 +408,25 @@ def create_plan_all_workflow(
                 step_deps = [prev_step_id]
 
             description = task_def.description
+            bridge_ref = f"{plugin_root}/references/discovery-bridge.md"
+
             if not is_first and task_id in {"research-decision", "execute-research"}:
                 description = (
+                    f"**Reference:** {bridge_ref}\n\n"
                     f"Review discovery findings from {discovery_findings}. "
-                    "Conduct focused research only on phase-specific topics."
+                    "Follow discovery-bridge.md protocol: detect artifacts, "
+                    "ingest findings (max 5), research gaps only."
+                )
+            elif not is_first and task_id == "detailed-interview":
+                description = (
+                    f"**Reference:** {bridge_ref}\n\n"
+                    f"Read discovery interview from {discovery_findings}/interview.md. "
+                    "Extract phase-relevant Q&A. Do NOT conduct a new interview."
+                )
+            elif not is_first and task_id == "save-interview":
+                description = (
+                    "Write discovery-derived interview to claude-interview.md. "
+                    "Add header noting this is derived from discovery interview."
                 )
 
             tracker.create(
@@ -419,10 +435,6 @@ def create_plan_all_workflow(
                 description=description,
                 depends_on=step_deps,
             )
-
-            # For non-first phases, pre-close interview steps
-            if not is_first and task_id in _SKIP_STEPS_AFTER_FIRST:
-                tracker.close(namespaced_id, "Skipped: interview completed in discovery phase")
 
             prev_step_id = namespaced_id
 
@@ -480,24 +492,41 @@ def create_autonomous_workflow(
                 step_deps = [prev_step_id]
 
             description = task_def.description
+            bridge_ref = f"{plugin_root}/references/discovery-bridge.md"
+
             if not is_first and task_id in {"research-decision", "execute-research"}:
                 description = (
+                    f"**Reference:** {bridge_ref}\n\n"
                     f"Review discovery findings from {discovery_findings}. "
-                    "Conduct focused research only on phase-specific topics."
+                    "Follow discovery-bridge.md protocol: detect artifacts, "
+                    "ingest findings (max 5), research gaps only."
                 )
             if task_id == "detailed-interview":
-                description = (
-                    "SELF-INTERVIEW: Launch two subagents — one as interviewer "
-                    "(reads interview-protocol.md, asks probing questions about "
-                    "this phase), one as stakeholder (answers using discovery "
-                    f"findings from {discovery_findings} and the phase spec). "
-                    "Write the Q&A transcript. Do NOT ask a human."
-                )
+                if is_first:
+                    description = (
+                        "SELF-INTERVIEW: Launch two subagents — one as interviewer "
+                        "(reads interview-protocol.md, asks probing questions about "
+                        "this phase), one as stakeholder (answers using discovery "
+                        f"findings from {discovery_findings} and the phase spec). "
+                        "Write the Q&A transcript. Do NOT ask a human."
+                    )
+                else:
+                    description = (
+                        f"**Reference:** {bridge_ref}\n\n"
+                        f"Read discovery interview from {discovery_findings}/interview.md. "
+                        "Extract phase-relevant Q&A. Do NOT conduct a new interview."
+                    )
             if task_id == "save-interview":
-                description = (
-                    "Save the self-interview transcript to claude-interview.md. "
-                    "The interview was conducted by subagents, not a human."
-                )
+                if is_first:
+                    description = (
+                        "Save the self-interview transcript to claude-interview.md. "
+                        "The interview was conducted by subagents, not a human."
+                    )
+                else:
+                    description = (
+                        "Write discovery-derived interview to claude-interview.md. "
+                        "Add header noting this is derived from discovery interview."
+                    )
 
             tracker.create(
                 namespaced_id,

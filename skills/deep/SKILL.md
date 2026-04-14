@@ -127,6 +127,7 @@ If mempalace IS available: follow `references/experience-protocol.md` **Phase 2*
 | Concern | Reference |
 |---------|-----------|
 | Mempalace experience recall, knowledge mining, proactive intelligence | `references/experience-protocol.md` |
+| Discovery bridge for plan-all/auto research + interview reuse | `references/discovery-bridge.md` |
 
 ### Discovery mode (`--workflow audit`)
 
@@ -175,8 +176,8 @@ uv run ${DEEP_PLUGIN_ROOT}/scripts/checks/generate-sections.py \
 
 Parse `phasing-overview.md` dependency graph. For each phase in topological order:
 - First phase: full plan workflow (all steps above)
-- Later phases: skip interview (pre-closed), review discovery findings instead of new research
-- Reference: same as Plan mode per step
+- Later phases: research and interview steps use `references/discovery-bridge.md` — reads discovery findings (max 5 per phase), identifies gaps, only researches gaps. Discovery interview is passed through to all phases.
+- Reference: same as Plan mode per step, except research/interview for non-first phases
 
 ### Auto mode (`--workflow auto`)
 

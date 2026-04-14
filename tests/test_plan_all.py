@@ -122,22 +122,24 @@ class TestCreatePlanAllWorkflow:
         assert "phase-P03" not in p02["depends_on"]
         assert "phase-P02" not in p03["depends_on"]
 
-    def test_interview_skipped_for_later_phases(self, tracker, phases_dir):
+    def test_interview_uses_discovery_bridge_for_later_phases(self, tracker, phases_dir):
         create_plan_all_workflow(
             tracker,
             phases_dir=str(phases_dir),
             plugin_root="/fake",
             discovery_findings="/fake/findings",
         )
-        # First phase (P01) interview is open
+        # First phase (P01) interview is open with standard description
         p01_interview = tracker.show("P01-detailed-interview")
         assert p01_interview["status"] == "open"
+        assert "discovery-bridge.md" not in p01_interview["description"]
 
-        # Later phases have interview closed
+        # Later phases have interview open with discovery bridge reference
         p02_interview = tracker.show("P02-detailed-interview")
-        assert p02_interview["status"] == "closed"
+        assert p02_interview["status"] == "open"
+        assert "discovery interview" in p02_interview["description"].lower() or "interview.md" in p02_interview["description"]
         p03_interview = tracker.show("P03-detailed-interview")
-        assert p03_interview["status"] == "closed"
+        assert p03_interview["status"] == "open"
 
     def test_lighter_research_for_later_phases(self, tracker, phases_dir):
         create_plan_all_workflow(
