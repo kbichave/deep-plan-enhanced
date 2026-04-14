@@ -29,7 +29,7 @@ from lib.workflow import create_plan_workflow, create_discovery_workflow, create
 from lib.research_topics import index_session_in_mempalace
 
 
-VALID_REVIEW_MODES = {"external_llm", "opus_subagent", "skip"}
+VALID_REVIEW_MODES = {"external_llm", "opus_subagent", "sonnet_subagent", "skip"}
 
 # All session state lives here — project working trees stay clean.
 SESSIONS_ROOT = Path.home() / ".claude" / "marketplace" / "deep-plan-enhanced" / "sessions"
@@ -456,7 +456,7 @@ def main():
     parser.add_argument("--plugin-root", required=True, help="Path to plugin root directory")
     parser.add_argument(
         "--review-mode", default="external_llm",
-        help="Review mode: external_llm, opus_subagent, or skip",
+        help="Review mode: external_llm, opus_subagent, sonnet_subagent, or skip",
     )
     parser.add_argument("--force", action="store_true", help="Force overwrite of existing state")
     parser.add_argument("--session-id", help="Session ID from hook's additionalContext")

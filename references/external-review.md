@@ -9,7 +9,8 @@ Check `review_mode` from task context (e.g., `review_mode=opus_subagent`).
 | Mode | When Used | Action |
 |------|-----------|--------|
 | `external_llm` | External LLMs configured (default) | Run review.py |
-| `opus_subagent` | No external LLMs, user chose Opus | Launch subagent |
+| `opus_subagent` | No external LLMs, user chose Opus | Launch Opus subagent |
+| `sonnet_subagent` | No external LLMs, user chose Sonnet | Launch Sonnet subagent |
 | `skip` | User chose to skip review | Skip to step 16 |
 
 ---
@@ -90,6 +91,50 @@ mkdir -p "{planning_dir}/reviews"
 
 ---
 
+## Mode: sonnet_subagent
+
+Same as `opus_subagent` but uses Sonnet (faster, cheaper, still high quality).
+
+Print status:
+```
+═══════════════════════════════════════════════════════════════
+STEP 13/22: SONNET PLAN REVIEW
+═══════════════════════════════════════════════════════════════
+Launching Claude Sonnet subagent for plan review...
+```
+
+**Steps:**
+
+1. Launch subagent (passes file path, not content):
+```
+Task(
+  subagent_type: "opus-plan-reviewer",
+  model: "sonnet",
+  prompt: "Review the implementation plan at: {planning_dir}/claude-plan.md"
+)
+```
+
+2. Create reviews directory if needed:
+```bash
+mkdir -p "{planning_dir}/reviews"
+```
+
+3. Write subagent output to `{planning_dir}/reviews/iteration-1-sonnet.md`:
+```markdown
+# Sonnet Review
+
+**Model:** claude-sonnet-4-6
+**Generated:** {ISO timestamp}
+
+---
+
+{subagent_output}
+```
+
+4. Proceed to step 14 (integrate feedback)
+
+---
+
 ## Mode: skip
 
 Print status:
@@ -112,3 +157,4 @@ All modes write to `{planning_dir}/reviews/`:
 - `iteration-1-gemini.md` - Gemini review (external_llm mode)
 - `iteration-1-openai.md` - OpenAI review (external_llm mode)
 - `iteration-1-opus.md` - Opus review (opus_subagent mode)
+- `iteration-1-sonnet.md` - Sonnet review (sonnet_subagent mode)

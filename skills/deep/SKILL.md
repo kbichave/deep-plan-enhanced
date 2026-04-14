@@ -31,7 +31,7 @@ bash ${DEEP_PLUGIN_ROOT}/scripts/checks/validate-env.sh
 ```
 Parse JSON output. Store `plugin_root` and map `review_available` to `review_mode`:
 - `"full"` / `"gemini_only"` / `"openai_only"` → `review_mode = "external_llm"`
-- `"none"` → ask user: Opus subagent (→ `"opus_subagent"`), skip (→ `"skip"`), or exit
+- `"none"` → ask user: Opus subagent (→ `"opus_subagent"`), Sonnet subagent (→ `"sonnet_subagent"`), skip (→ `"skip"`), or exit
 
 If `valid == false`: show errors and stop.
 
