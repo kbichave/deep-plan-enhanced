@@ -2,7 +2,7 @@
 name: deep
 description: Unified discovery, planning, and implementation. Modes — discovery: system audit → phase specs; plan: implementation blueprint; plan-all: batch-plan all phases; implement: execute sections; auto: autonomous end-to-end. Accepts @path, inline text, or no argument.
 license: MIT
-compatibility: Requires uv (Python 3.11+), optional Gemini or OpenAI API key for external review
+compatibility: Requires uv (Python 3.11+), optional Gemini or OpenAI API key for external review. Recommended: mempalace MCP for cross-session knowledge persistence
 ---
 
 # Deep Skill
@@ -34,6 +34,12 @@ Parse JSON output. Store `plugin_root` and map `review_available` to `review_mod
 - `"none"` → ask user: Opus subagent (→ `"opus_subagent"`), Sonnet subagent (→ `"sonnet_subagent"`), skip (→ `"skip"`), or exit
 
 If `valid == false`: show errors and stop.
+
+### 1b. Check Mempalace
+
+Test if the `mempalace` MCP is connected by calling `mcp__mempalace__mempalace_status`.
+- If it succeeds: set `mempalace_available = true`. Derive a **wing name** from the project directory name (e.g., `my-service` for `/path/to/my-service`).
+- If it fails or the tool is not available: set `mempalace_available = false`. Continue without it — mempalace is recommended but not required.
 
 ### 2. Resolve Input
 
@@ -73,6 +79,14 @@ Parse JSON output:
 
 Store `planning_dir`, `initial_file`, `plugin_root` from the output.
 
+### 3b. Mempalace Recall (if `mempalace_available`)
+
+Before starting any workflow, check mempalace for prior knowledge about this project:
+
+1. **Search for prior context:** `mempalace_search(query="<project name> architecture decisions", wing=<wing_name>, limit=5)`
+2. **Query knowledge graph:** `mempalace_kg_query(entity=<wing_name>)` to retrieve known relationships (dependencies, patterns, constraints)
+3. If results exist, use them as additional context when executing workflow steps — they represent decisions and findings from prior sessions.
+
 **For `implement` mode:** Skip setup-session. Instead:
 1. If `@path` provided: use it as `planning_dir` (or its parent if a file)
 2. Otherwise: read `~/.claude/.deep-plan-active` for `planning_dir`
@@ -89,9 +103,35 @@ After setup, follow the tracker for the active mode:
 2. Call tracker.ready() → returns next unblocked step(s)
 3. Read the step's reference file (see index below)
 4. Execute the step
-5. Call tracker.close(issue_id, reason)
-6. Repeat from 2 until all steps are closed
+5. Mempalace store (if mempalace_available) — see below
+6. Call tracker.close(issue_id, reason)
+7. Repeat from 2 until all steps are closed
 ```
+
+### Mempalace Auto-Store Rules
+
+When `mempalace_available == true`, store knowledge automatically at these checkpoints. Do NOT ask the user — just store silently as part of the workflow.
+
+**What to store and where:**
+
+| Workflow event | Tool | Wing | Room | Content |
+|---|---|---|---|---|
+| Discovery: research findings | `add_drawer` | `<wing_name>` | `research` | Key findings per topic (verbatim from research output) |
+| Discovery: gap identified | `kg_add` | — | — | `subject=<wing_name>, predicate="has_gap", object=<gap description>` |
+| Discovery: build-vs-buy decision | `add_drawer` | `<wing_name>` | `decisions` | Decision + rationale + rejected alternatives |
+| Plan: architectural decision | `add_drawer` | `<wing_name>` | `decisions` | Decision, tradeoffs, and why this approach was chosen |
+| Plan: spec finalized | `kg_add` | — | — | `subject=<wing_name>, predicate="planned_with", object=<approach summary>` |
+| Plan: external review feedback | `add_drawer` | `<wing_name>` | `reviews` | Reviewer feedback and how it was addressed |
+| Implement: section complete | `kg_add` | — | — | `subject=<wing_name>, predicate="implemented", object=<section name>` |
+| Implement: quality gate result | `add_drawer` | `<wing_name>` | `implementation` | Section name + pass/fail + key metrics (coverage, issues found) |
+| Session complete | `diary_write` | — | — | `agent_name="deep-plan", entry=<AAAK summary of session: mode, what was accomplished, open items>` |
+
+**Rules:**
+- Keep stored content concise — facts and decisions, not full documents
+- Use `add_drawer` for detailed content, `kg_add` for entity relationships
+- Set `added_by="deep-plan"` on all `add_drawer` calls
+- Set `valid_from` to today's date on all `kg_add` calls
+- If a mempalace call fails, log a warning and continue — never block the workflow on mempalace
 
 ---
 
@@ -185,9 +225,12 @@ Same as Plan-All, plus:
 After `/clear` or context compaction:
 
 1. Re-run `validate-env.sh` to restore `plugin_root`
-2. Read `{planning_dir}/.deepstate/state.json` to restore tracker state
-3. Call `tracker.ready()` — returns exactly where to continue
-4. For implement mode: read `impl-progress.md` for current section status
-5. Reference files are at `{plugin_root}/references/`
+2. Check mempalace (step 1b) — if available, run recall (step 3b) to recover prior context
+3. Read `{planning_dir}/.deepstate/state.json` to restore tracker state
+4. Call `tracker.ready()` — returns exactly where to continue
+5. For implement mode: read `impl-progress.md` for current section status
+6. Reference files are at `{plugin_root}/references/`
 
 If `planning_dir` is unknown: check `~/.claude/.deep-plan-active` for the last active session path.
+
+Mempalace recall after compaction is especially valuable — it restores decisions, tradeoffs, and findings that were in the compacted context.

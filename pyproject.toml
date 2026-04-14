@@ -6,6 +6,7 @@ requires-python = ">=3.11"
 dependencies = [
     "google-genai>=1.0.0",
     "openai>=1.0.0",
+    "mempalace>=3.0.0",
 ]
 
 [project.optional-dependencies]
