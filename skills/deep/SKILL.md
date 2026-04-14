@@ -85,13 +85,9 @@ Parse JSON output:
 
 Store `planning_dir`, `initial_file`, `plugin_root` from the output.
 
-### 3b. Mempalace Recall (if `mempalace_available`)
+### 3b. Mempalace Experience Recall (if `mempalace_available`)
 
-Before starting any workflow, check mempalace for prior knowledge about this project:
-
-1. **Search for prior context:** `mempalace_search(query="<project name> architecture decisions", wing=<wing_name>, limit=5)`
-2. **Query knowledge graph:** `mempalace_kg_query(entity=<wing_name>)` to retrieve known relationships (dependencies, patterns, constraints)
-3. If results exist, use them as additional context when executing workflow steps — they represent decisions and findings from prior sessions.
+Read `references/experience-protocol.md` and execute **Phase 1: Experience Recall**. This queries mempalace for prior decisions, coding patterns, lessons learned, domain knowledge, and known risks — then synthesizes an `experience_context` block (under 500 words) that travels with the workflow.
 
 **For `implement` mode:** Skip setup-session. Instead:
 1. If `@path` provided: use it as `planning_dir` (or its parent if a file)
@@ -109,39 +105,28 @@ After setup, follow the tracker for the active mode:
 2. Call tracker.ready() → returns next unblocked step(s)
 3. Read the step's reference file (see index below)
 4. Execute the step
-5. Mempalace store (if mempalace_available) — see below
+5. Mempalace mine (if mempalace_available) — see Knowledge Mining below
 6. Call tracker.close(issue_id, reason)
 7. Repeat from 2 until all steps are closed
 ```
 
-### Mempalace Auto-Store Rules
+### Mempalace Knowledge Mining
 
-When `mempalace_available == true`, store knowledge automatically at these checkpoints. Do NOT ask the user — just store silently as part of the workflow.
+When `mempalace_available == true`, follow `references/experience-protocol.md` **Phase 2: Continuous Knowledge Mining** at every workflow checkpoint. This stores findings, decisions, patterns, and lessons as you discover them — not as a batch at the end.
 
-**What to store and where:**
+Additionally, follow **Phase 3: Proactive Intelligence** — at every decision point, think ahead: surface risks the user hasn't asked about, flag contradictions with prior decisions, and predict gaps before they become problems.
 
-| Workflow event | Tool | Wing | Room | Content |
-|---|---|---|---|---|
-| Discovery: research findings | `add_drawer` | `<wing_name>` | `research` | Key findings per topic (verbatim from research output) |
-| Discovery: gap identified | `kg_add` | — | — | `subject=<wing_name>, predicate="has_gap", object=<gap description>` |
-| Discovery: build-vs-buy decision | `add_drawer` | `<wing_name>` | `decisions` | Decision + rationale + rejected alternatives |
-| Plan: architectural decision | `add_drawer` | `<wing_name>` | `decisions` | Decision, tradeoffs, and why this approach was chosen |
-| Plan: spec finalized | `kg_add` | — | — | `subject=<wing_name>, predicate="planned_with", object=<approach summary>` |
-| Plan: external review feedback | `add_drawer` | `<wing_name>` | `reviews` | Reviewer feedback and how it was addressed |
-| Implement: section complete | `kg_add` | — | — | `subject=<wing_name>, predicate="implemented", object=<section name>` |
-| Implement: quality gate result | `add_drawer` | `<wing_name>` | `implementation` | Section name + pass/fail + key metrics (coverage, issues found) |
-| Session complete | `diary_write` | — | — | `agent_name="deep-plan", entry=<AAAK summary of session: mode, what was accomplished, open items>` |
-
-**Rules:**
-- Keep stored content concise — facts and decisions, not full documents
-- Use `add_drawer` for detailed content, `kg_add` for entity relationships
-- Set `added_by="deep-plan"` on all `add_drawer` calls
-- Set `valid_from` to today's date on all `kg_add` calls
-- If a mempalace call fails, log a warning and continue — never block the workflow on mempalace
+Do NOT ask the user — store and surface intelligence silently as part of the workflow.
 
 ---
 
 ## Reference File Index
+
+### Cross-cutting (all modes)
+
+| Concern | Reference |
+|---------|-----------|
+| Mempalace experience recall, knowledge mining, proactive intelligence | `references/experience-protocol.md` |
 
 ### Discovery mode (`--workflow audit`)
 
