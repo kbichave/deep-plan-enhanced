@@ -40,7 +40,7 @@ cd ~/.claude/plugins/deep-plan-enhanced && uv sync
 ### Optional Integrations
 
 - **[Beads](https://github.com/plastic-labs/beads)** — richer issue tracking alongside the built-in deepstate tracker. When `bd` is on PATH, the plugin automatically mirrors issue operations. Never required.
-- **[MemPalace](https://github.com/milla-jovovich/mempalace)** — semantic cross-project research storage. When the `mempalace` MCP is available, research topics and session metadata are indexed for cross-project search. Falls back to flat YAML when unavailable.
+- **[MemPalace](https://github.com/milla-jovovich/mempalace)** — cross-session intelligence layer. Installed as a dependency (`uv sync`). When the `mempalace` MCP is connected, the plugin automatically initializes and mines knowledge — no user setup required. See [Experience Protocol](#experience-protocol) below.
 
 ## The Workflow
 
@@ -84,7 +84,7 @@ A general-purpose system discovery that works on any project — existing codeba
 - **3-perspective enumeration** — security auditor + new engineer + PM viewpoints ensure comprehensive topic coverage
 - **Coverage validation loop** — automated gap agents fill uncovered topics until ≥80% threshold
 - **Per-topic findings files** — `findings/<topic-id>-<slug>.md` instead of monolithic output
-- **Cross-project memory** — MemPalace integration seeds topic lists from prior project research (when available)
+- **Cross-session intelligence** — MemPalace experience protocol recalls prior decisions, patterns, and lessons to make each session smarter (see below)
 - **Dynamic research depth** — 2 agents for a small CLI, 10+ for a large platform
 - **Interview expands scope** — suggests capabilities user didn't ask for based on ecosystem research
 - **Build-vs-buy is granular** — real package names with real version numbers per capability
@@ -174,6 +174,7 @@ Legacy sessions that already exist inside project directories are detected via f
 | Workflow steps → Beads CLI (optional) | Beads CLI (`bd`) | `BeadsSyncTracker` |
 | Research topics + coverage + findings | MemPalace (if installed) or `research-topics.yaml` | `ResearchTopicStore` |
 | Session index across projects | MemPalace (if installed) or `index.json` | `ResearchTopicStore` |
+| Cross-session intelligence | MemPalace rooms: codecraft, decisions, experience, domain, risks | Experience Protocol |
 
 ### Library Modules (`scripts/lib/`)
 
@@ -209,6 +210,7 @@ Legacy sessions that already exist inside project directories are detected via f
 | `section-index.md` | Plan: section index creation |
 | `section-splitting.md` | Plan: section splitting with dependency graph |
 | `context-check.md` | Plan: context window management |
+| `experience-protocol.md` | All modes: mempalace recall, knowledge mining, proactive intelligence |
 
 ### Agent Definitions (`agents/`)
 
@@ -219,6 +221,24 @@ Legacy sessions that already exist inside project directories are detected via f
 | `audit-doc-writer.md` | Focused audit document generation per topic |
 | `section-writer.md` | Self-contained section content generation |
 
+## Experience Protocol
+
+When the [MemPalace](https://github.com/milla-jovovich/mempalace) MCP is connected, the plugin runs a three-phase intelligence loop — fully automatic, no user action needed:
+
+| Phase | When | What |
+|-------|------|------|
+| **Recall** | Session start | Query mempalace for prior decisions, coding patterns, lessons learned, domain knowledge, and known risks. Synthesize into an `experience_context` block that travels with the workflow. |
+| **Mine** | After each workflow step | Store findings, architectural decisions, quality gate results, and domain insights as they're discovered — not batched at the end. Uses structured rooms: `codecraft`, `decisions`, `experience`, `research`, `domain`, `risks`, `reviews`, `implementation`. |
+| **Think Ahead** | Every decision point | Surface risks the user hasn't asked about, flag contradictions with prior decisions, enforce observed conventions, predict gaps before they become problems. |
+
+**On first run:** If no palace exists, the plugin runs `mempalace init --yes` and `mempalace mine` automatically.
+
+**On resume after compaction:** Experience recall restores decisions and context lost during `/clear` or context compression.
+
+**Cross-session accumulation:** Each `/deep` run gets smarter because it draws on what prior runs learned — not just about the code, but about what approaches worked, what failed, and what the user cares about.
+
+See [`references/experience-protocol.md`](references/experience-protocol.md) for the full protocol.
+
 ## Requirements
 
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI
@@ -226,7 +246,7 @@ Legacy sessions that already exist inside project directories are detected via f
 - Python 3.11+
 - (Optional) Gemini API key or OpenAI API key for external plan review
 - (Optional) [Beads](https://github.com/plastic-labs/beads) (`brew install beads`) for enhanced issue tracking
-- (Optional) [MemPalace](https://github.com/milla-jovovich/mempalace) MCP for cross-project research memory
+- (Recommended) [MemPalace](https://github.com/milla-jovovich/mempalace) MCP for cross-session intelligence (installed via `uv sync`, MCP connection optional)
 
 ## Tests
 
@@ -249,7 +269,7 @@ This project combines patterns from [deep-plan](https://github.com/piercelamb/de
 | Python coding standards + 7-criterion code reviewer | python-skills patterns |
 | Quality gates: ruff + mypy --strict + bandit + pytest --cov ≥85% | python-skills patterns |
 | Session storage isolation (`~/.claude/marketplace/...`) | New (v1.5.0) |
-| MemPalace integration for cross-project research memory | MemPalace MCP |
+| MemPalace experience protocol — recall, mine, think ahead | New (v1.7.1) |
 | Session isolation (concurrent sessions don't overwrite) | New |
 | PostToolUse progress nudge hooks | planning-with-files pattern |
 | Stop hook with exit summary requirement | planning-with-files pattern |
