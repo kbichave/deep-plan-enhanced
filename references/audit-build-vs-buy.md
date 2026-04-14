@@ -21,26 +21,24 @@ For each capability in the build-vs-buy list from step 6:
 
 ### 1. Search for Existing Solutions
 
+**Early-exit rule: Stop searching when you have 2-4 viable options with verified names and version numbers.** Don't exhaustively search every category — search until you have enough to make a well-reasoned recommendation.
+
 ```
-Searches to perform (use CURRENT YEAR in all queries):
+Search categories (use CURRENT YEAR in all queries, search in priority order):
 
-Package registries:
-  - PyPI: "pip install {capability keywords}" — search pypi.org
-  - npm: "npm install {capability keywords}" — search npmjs.com
-  - GitHub: "{capability} {language} library" — sort by stars
-  - crates.io/Go modules/etc. if relevant language detected
+1. Package registry for the project's language (ALWAYS):
+   - PyPI/npm/crates.io/Go modules: "{capability keywords}"
+   - GitHub: "{capability} {language} library" — sort by stars
 
-Managed services:
-  - "{capability} as a service {current_year}"
-  - "{capability} managed {cloud_provider}" (if cloud detected)
-  - "{capability} SaaS pricing"
+2. Framework-native (ALWAYS — check before building custom):
+   - "{framework} built-in {capability}"
 
-Framework-native:
-  - "{framework} built-in {capability}"
-  - "{framework} {capability} feature {current_year}"
+3. Managed services (IF cloud-hosted):
+   - "{capability} as a service {current_year}"
+   - "{capability} managed {cloud_provider}"
 
-Academic (if applicable):
-  - "arxiv {capability} {technique}" for cutting-edge approaches
+4. Academic (IF domain has active research — ML, NLP, optimization):
+   - "arxiv {capability} {technique}"
 ```
 
 ### 2. Evaluate Each Option

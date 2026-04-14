@@ -138,7 +138,8 @@ Task tool:
 
     Focus areas from user: {user_specified_areas_if_any}
 
-    Return your findings as markdown. Structure it however makes sense for what you find.
+    BREVITY RULE: Limit response to 500 words max. Use bullet points, not prose.
+    Focus on specifics: file paths, patterns, dependencies, test setup.
 
     DO NOT write to any files. Return your findings in your response.
 ```
@@ -161,8 +162,8 @@ Task tool:
     3. Cross-validate information across sources
     4. Synthesize findings with clear recommendations
 
-    Return your findings as markdown. Structure it however makes sense.
-    Always cite sources with URLs.
+    BREVITY RULE: Limit response to 500 words max. Bullet points with URLs,
+    not prose paragraphs. Cite sources inline.
 
     DO NOT write to any files. Return your findings in your response.
 ```
@@ -202,39 +203,4 @@ Structure the file however makes sense for the findings. The goal is to capture 
 
 ## Example Flow
 
-**User runs:** `/deep-plan @planning/auth-feature-spec.md`
-
-**Spec file contains:**
-```markdown
-# Authentication Feature
-
-Add OAuth2 login with Google and GitHub providers.
-Store sessions in Redis. Use JWT for API authentication.
-```
-
-**Step 6 - Claude extracts topics:**
-- "OAuth2 implementation best practices 2025"
-- "JWT vs session authentication trade-offs"
-- "Redis session storage patterns"
-
-**Step 6 - Claude asks:**
-```
-Q1: Is there existing code I should research first?
-  → User selects: "Yes, research the codebase"
-
-Q2: Should I research best practices for any of these topics?
-  → User selects:
-    ✓ "OAuth2 implementation best practices 2025"
-    ✓ "JWT vs session authentication trade-offs"
-    ✗ "Redis session storage patterns"
-```
-
-**Step 7 - Claude launches parallel tasks:**
-```
-# Single message:
-Task(subagent_type=Explore, prompt="Research codebase...")
-Task(subagent_type=web-search-researcher, prompt="Research OAuth2, JWT...")
-```
-
-**Step 7 - After both complete:**
-Main Claude combines both results and writes single `claude-research.md`.
+User runs `/deep plan @spec.md` → Claude extracts topics from spec → asks user which to research → launches codebase + web research subagents in parallel (single message, both Task calls) → combines results into `claude-research.md`.

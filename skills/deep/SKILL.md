@@ -85,9 +85,11 @@ Parse JSON output:
 
 Store `planning_dir`, `initial_file`, `plugin_root` from the output.
 
-### 3b. Mempalace Experience Recall (if `mempalace_available`)
+### 3b. Mempalace Experience Recall (ONLY if `mempalace_available == true`)
 
-Read `references/experience-protocol.md` and execute **Phase 1: Experience Recall**. This queries mempalace for prior decisions, coding patterns, lessons learned, domain knowledge, and known risks — then synthesizes an `experience_context` block (under 500 words) that travels with the workflow.
+**Skip this step entirely if mempalace is not available.** Do not read the reference file.
+
+If mempalace IS available: read `references/experience-protocol.md` and execute **Phase 1: Experience Recall**. This queries mempalace for prior decisions, coding patterns, lessons learned, domain knowledge, and known risks — then synthesizes an `experience_context` block (under 500 words) that travels with the workflow.
 
 **For `implement` mode:** Skip setup-session. Instead:
 1. If `@path` provided: use it as `planning_dir` (or its parent if a file)
@@ -110,13 +112,11 @@ After setup, follow the tracker for the active mode:
 7. Repeat from 2 until all steps are closed
 ```
 
-### Mempalace Knowledge Mining
+### Mempalace Knowledge Mining (ONLY if `mempalace_available == true`)
 
-When `mempalace_available == true`, follow `references/experience-protocol.md` **Phase 2: Continuous Knowledge Mining** at every workflow checkpoint. This stores findings, decisions, patterns, and lessons as you discover them — not as a batch at the end.
+**Skip entirely if mempalace is not available.** Do not read the reference file.
 
-Additionally, follow **Phase 3: Proactive Intelligence** — at every decision point, think ahead: surface risks the user hasn't asked about, flag contradictions with prior decisions, and predict gaps before they become problems.
-
-Do NOT ask the user — store and surface intelligence silently as part of the workflow.
+If mempalace IS available: follow `references/experience-protocol.md` **Phase 2** (store findings at each checkpoint) and **Phase 3** (proactive intelligence — surface risks, flag contradictions with prior decisions, predict gaps). Do NOT ask the user — store and surface intelligence silently.
 
 ---
 

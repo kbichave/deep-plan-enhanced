@@ -124,16 +124,21 @@ prompt: |
   Files to focus on:
   {detected_relevant_paths_from_wave0}
   
-  At the end of your findings, include:
+  BREVITY RULE: Limit your response to 400 words max. Be dense — facts and
+  specifics, not prose. Use bullet points, not paragraphs.
   
-  ### Open Questions Raised
-  - {Things you discovered that need deeper investigation}
-  - {Contradictions with other findings}
-  - {Areas you couldn't fully explore in this pass}
+  Structure your output EXACTLY as:
   
-  Return findings as markdown with header:
   ## {Mission Name}
   <!-- source: codebase-{N}, confidence: {high|medium|low}, topic: {category}, wave: 1 -->
+  
+  ### Findings
+  - {bullet points — specific files, patterns, facts}
+  
+  ### Open Questions
+  1. {Things you discovered that need deeper investigation}
+  2. {Contradictions with other findings}
+  3. {Areas you couldn't fully explore in this pass}
 ```
 
 ### Ecosystem Agent Prompt Pattern
@@ -158,16 +163,20 @@ prompt: |
   3. Cross-validate across sources
   4. Note SPECIFIC package names, versions, star counts, last release dates
   
-  At the end, include:
+  BREVITY RULE: Limit your response to 400 words max. Be dense — specific
+  names, versions, URLs, and facts. No filler prose.
   
-  ### Open Questions Raised
-  - {Things that need codebase investigation to resolve}
-  - {Packages found that need integration analysis}
-  - {Claims that need verification against actual code}
+  Structure your output EXACTLY as:
   
-  Return findings with:
   ## {Mission Name}
   <!-- source: ecosystem-{N}, confidence: {high|medium|low}, topic: {category}, wave: 1 -->
+  
+  ### Findings
+  - {bullet points — package names, versions, stars, URLs}
+  
+  ### Open Questions
+  1. {Things that need codebase investigation to resolve}
+  2. {Packages found that need integration analysis}
   
   Always cite sources with URLs.
 ```
@@ -189,13 +198,15 @@ prompt: |
   - Google Scholar for highly-cited work
   - Conference proceedings ({relevant_conferences})
   
+  BREVITY RULE: 300 words max. Table format preferred for papers.
+  
   For each paper:
   - Title, authors, year, venue
   - Key contribution (1-2 sentences)
   - How it applies to THIS system specifically
   - Link/DOI
   
-  ### Open Questions Raised
+  ### Open Questions
   - {Techniques that could apply but need codebase analysis to confirm}
 ```
 

@@ -139,42 +139,7 @@ If the manifest is invalid (missing, malformed, or has errors), `check-sections.
 
 ## Human-Readable Content
 
-After the manifest block, include:
-
-### Dependency Graph
-
-Table showing what blocks what:
-
-```markdown
-| Section | Depends On | Blocks | Parallelizable |
-|---------|------------|--------|----------------|
-| section-01-foundation | - | section-02, section-03 | Yes |
-| section-02-config | section-01 | section-04 | No |
-| section-03-parser | section-01 | section-04 | Yes |
-| section-04-api | section-02, section-03 | - | No |
-```
-
-### Execution Order
-
-Which sections can run in parallel:
-
-```markdown
-1. section-01-foundation (no dependencies)
-2. section-02-config, section-03-parser (parallel after section-01)
-3. section-04-api (requires section-02 AND section-03)
-```
-
-### Section Summaries
-
-Brief description of each section:
-
-```markdown
-### section-01-foundation
-Initial project setup and configuration.
-
-### section-02-config
-Configuration loading and validation.
-```
+After the manifest block, include an **Execution Order** (which sections run in parallel) and **Section Summaries** (one line each). See the minimal example below.
 
 ## Guidelines
 
@@ -183,7 +148,7 @@ Configuration loading and validation.
 - **Parallelization**: Consider which sections can run independently
 - **Dependency direction**: Earlier sections should not depend on later sections
 
-## Example index.md
+## Minimal Example
 
 ```markdown
 <!-- PROJECT_CONFIG
@@ -193,51 +158,21 @@ END_PROJECT_CONFIG -->
 
 <!-- SECTION_MANIFEST
 section-01-foundation
-section-02-core-libs
-section-03-env-validation
-section-04-llm-clients
-section-05-skill-orchestrator
-section-06-integration
+section-02-config              depends_on:section-01-foundation
+section-03-parser              depends_on:section-01-foundation
+section-04-api                 depends_on:section-02-config,section-03-parser
 END_MANIFEST -->
 
 # Implementation Sections Index
 
-## Dependency Graph
-
-| Section | Depends On | Blocks | Parallelizable |
-|---------|------------|--------|----------------|
-| section-01-foundation | - | all | Yes |
-| section-02-core-libs | 01 | 03, 04 | No |
-| section-03-env-validation | 02 | 05 | Yes |
-| section-04-llm-clients | 02 | 05 | Yes |
-| section-05-skill-orchestrator | 03, 04 | 06 | No |
-| section-06-integration | 05 | - | No |
-
 ## Execution Order
-
 1. section-01-foundation (no dependencies)
-2. section-02-core-libs (after 01)
-3. section-03-env-validation, section-04-llm-clients (parallel after 02)
-4. section-05-skill-orchestrator (after 03 AND 04)
-5. section-06-integration (final)
+2. section-02-config, section-03-parser (parallel after 01)
+3. section-04-api (after 02 AND 03)
 
 ## Section Summaries
-
-### section-01-foundation
-Directory structure, config files, test fixtures.
-
-### section-02-core-libs
-Config loader, prompt utilities.
-
-### section-03-env-validation
-Environment checks, context estimation.
-
-### section-04-llm-clients
-Gemini and ChatGPT API clients.
-
-### section-05-skill-orchestrator
-Main skill file and orchestration agent.
-
-### section-06-integration
-End-to-end integration tests.
+### section-01-foundation — Project setup, config, test fixtures.
+### section-02-config — Configuration loading and validation.
+### section-03-parser — Input parsing and transformation.
+### section-04-api — API endpoints and integration.
 ```

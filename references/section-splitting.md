@@ -119,13 +119,4 @@ Each section file must be **completely self-contained**. The implementer should 
 
 ## Debugging
 
-If sections aren't being written:
-
-1. **Check sections dir:** `ls {planning_dir}/sections/` - see what was written
-2. **Check tracking files:** `ls ~/.claude/section-writer-agents/` (should be empty after cleanup)
-3. **Check prompt files:** `{planning_dir}/sections/.prompts/` - review what was sent to subagent
-4. **Check subagent output:** The Task tool response contains the subagent's JSON output for manual fallback
-
-## Prompt Files
-
-The script writes full prompt files to `<planning_dir>/sections/.prompts/`. These persist (not temporary) and can be reviewed for debugging if a subagent produces unexpected output.
+If sections aren't being written, check in order: `ls {planning_dir}/sections/` (what was written), `{planning_dir}/sections/.prompts/` (what was sent to subagent), Task tool response (contains JSON for manual fallback).
