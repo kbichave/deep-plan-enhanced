@@ -212,13 +212,14 @@ Chain 2: plan P02 → implement P02 → plan P04 → ...
 | Step | Reference |
 |------|-----------|
 | Initialize tracking | Create `impl-task-plan.md`, `impl-findings.md`, `impl-progress.md`, `impl-mutations.md` |
-| Per-section: confidence gate | Rate 1-10 before coding (see Confidence Gate below) |
+| Per-section: confidence gate | Rate 1-10 before coding — reads prior section outcomes from `impl-progress.md` (see Confidence Gate below) |
 | Per-section: read spec | `sections/{section-name}.md` + `claude-plan-tdd.md` |
 | Per-section: code standards | `references/coding-standards.md` (read before writing any code) |
 | Per-section: implement | Tests first, then implementation |
 | Per-section: eval check | Verify capability evals pass (new tests) and regression evals pass (existing tests) |
 | Per-section: review | `agents/python-code-reviewer.md` (Python) or `agents/opus-plan-reviewer.md` (other) |
 | Per-section: quality gate | ruff + mypy + bandit + pytest --cov (see `references/coding-standards.md`) |
+| Per-section: chain context | Append `section_outcome` from review JSON to `impl-progress.md` (see Context Chaining below) |
 | Per-section: close | `tracker.close(section_id, reason)`, update `impl-progress.md` |
 | Plan mutation | `references/plan-mutation-protocol.md` — formal split/skip/reorder/insert/amend when reality diverges from plan |
 | Final verification | Full test suite, no TODOs, write `impl-summary.md` |
@@ -238,6 +239,33 @@ Before coding each section, assess readiness on a 1-10 scale:
 - **8-10:** Proceed normally
 - **5-7:** Proceed with caveats — log concerns in `impl-findings.md`, consider AMEND mutation
 - **1-4:** Do NOT proceed — in interactive mode: ask user. In auto mode: log reason, apply SKIP or SPLIT mutation per `references/plan-mutation-protocol.md`, move to next section
+
+#### Context Chaining
+
+Each section's code review produces a `section_outcome` block (see `agents/python-code-reviewer.md`). After review passes, append this outcome to `impl-progress.md` under a `## Section Outcomes` heading:
+
+```markdown
+## Section Outcomes
+
+### section-01-foundation
+- **Files:** src/core/__init__.py, src/core/types.py, tests/test_core_types.py
+- **Interfaces:** Result[T] generic, AppError base exception, UserId NewType
+- **Deviations:** None
+- **Context:** Foundation types at src/core/types.py. All sections should use Result[T] for fallible operations.
+
+### section-02-config
+- **Files:** src/config/loader.py, src/config/models.py
+- **Interfaces:** load_config(path: Path) -> AppConfig
+- **Deviations:** Used TOML instead of YAML — pyproject.toml already in project
+- **Context:** Config loading via load_config(). Downstream sections needing config import from src/config/loader.
+```
+
+The **confidence gate** for each subsequent section reads these outcomes to assess:
+- Whether dependency interfaces actually match what the section spec assumed
+- Whether any spec deviations in prior sections invalidate the current section's approach
+- Whether an AMEND mutation is needed before proceeding
+
+This prevents drift — later sections account for how earlier sections actually landed, not just what was planned.
 
 #### Eval Check
 

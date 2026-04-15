@@ -78,24 +78,40 @@ Do NOT mutate for:
 
 All mutations are logged to `{planning_dir}/impl-mutations.md`:
 
+Every mutation log entry MUST include these four fields. Vague reasons like "too complex" or "not needed" are not acceptable — the log must be decision-enabling for someone reading it later without other context.
+
 ```markdown
 # Plan Mutations
 
 ## 2024-01-15T14:30:00Z — SPLIT section-03-parser
-- **Original:** section-03-parser (parsing + validation + transformation)
-- **New sections:** section-03a-parser (parsing), section-03b-validator (validation + transformation)
-- **Reason:** Section exceeded 600 lines estimated; parsing and validation are independently testable
-- **Downstream impact:** section-04-api now depends on section-03b-validator instead of section-03-parser
+- **What changed:** section-03-parser split into section-03a-parser (parsing only) and section-03b-validator (validation + transformation)
+- **Why:** Section estimated at 600+ lines with two independently testable concerns. Confidence gate scored 4/10 on scope — parsing is pure functions, validation has side effects (DB lookups), mixing them prevents parallel testing.
+- **Downstream impact:** section-04-api dependency updated from section-03-parser to section-03b-validator. section-03a-parser has no downstream dependents.
+- **Alternative considered:** AMEND to reduce scope by deferring transformation to section-04. Rejected because transformation is tightly coupled to validation (shares error types).
 
 ## 2024-01-15T16:00:00Z — SKIP section-05-migration
-- **Reason:** Database schema was already compatible — migration is unnecessary
-- **Downstream impact:** section-06-integration dependency on section-05-migration removed
+- **What changed:** section-05-migration removed from execution plan
+- **Why:** section-02-config implementation revealed the database schema is already compatible — the column types match, no ALTER TABLE needed. Discovered during confidence gate (score: 2/10 on codebase context — migration target already exists).
+- **Downstream impact:** section-06-integration dependency on section-05-migration removed. No other sections affected.
+- **Alternative considered:** AMEND to convert migration section into a verification-only section. Rejected because verification is already covered by section-06-integration's regression evals.
 ```
+
+## Reason Quality Requirements
+
+Each mutation field serves a specific purpose:
+
+| Field | Purpose | Bad Example | Good Example |
+|-------|---------|-------------|--------------|
+| **What changed** | Factual delta — what was the plan before, what is it now | "Split section 3" | "section-03-parser split into section-03a-parser (parsing) and section-03b-validator (validation + transformation)" |
+| **Why** | Root cause — what evidence triggered this mutation | "Too complex" | "Confidence gate scored 4/10 on scope — 600+ lines with independently testable concerns" |
+| **Downstream impact** | Dependency graph changes — who is affected | "Updated deps" | "section-04-api dependency updated from section-03-parser to section-03b-validator" |
+| **Alternative considered** | Decision completeness — what else was evaluated and rejected | _(omitted)_ | "AMEND to reduce scope rejected because transformation is coupled to validation" |
 
 ## Rules
 
-1. **Never mutate silently.** Every mutation must be logged with a reason.
+1. **Never mutate silently.** Every mutation must include all four fields.
 2. **Validate the dependency graph after every mutation.** Circular dependencies = broken plan.
 3. **Prefer AMEND over SPLIT** if the change is small. Don't create unnecessary sections.
 4. **Mutations in auto mode:** Log and proceed. In interactive mode: inform the user before executing.
 5. **Mutations are one-way.** Do not "un-split" or "un-skip" — if you need to reverse a mutation, create a new INSERT or AMEND.
+6. **Reason quality is enforced.** A mutation with "Reason: too complex" will be flagged during final verification. Be specific — cite confidence scores, line estimates, or section outcome deviations.

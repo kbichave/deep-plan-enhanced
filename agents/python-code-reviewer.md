@@ -110,6 +110,12 @@ Output ONLY valid JSON, no other text:
     "mypy": "pass",
     "bandit": "pass",
     "coverage_pct": null
+  },
+  "section_outcome": {
+    "files_changed": ["src/auth/handler.py", "tests/test_auth.py"],
+    "interfaces_exposed": ["AuthHandler.verify_token(token: str) -> Claims"],
+    "spec_deviations": ["Used JWT instead of opaque tokens — spec was ambiguous, JWT chosen for statelessness"],
+    "context_for_next": "Auth module now exposes AuthHandler at src/auth/handler.py. Downstream sections importing auth should use verify_token(), not raw token parsing."
   }
 }
 ```
@@ -126,6 +132,12 @@ Output ONLY valid JSON, no other text:
 **`gates.bandit`:** `"pass"` if no HIGH severity findings, `"fail"` if HIGH severity found, `"skipped"` if bandit is not available.
 
 **`gates.coverage_pct`:** `null` — coverage is measured by the main Claude process after review.
+
+**`section_outcome`:** Context chain for downstream sections. The main Claude process appends this to `impl-progress.md` after each section closes. The next section's confidence gate reads it.
+- `files_changed`: All files created or modified (list of paths)
+- `interfaces_exposed`: Public functions/classes/endpoints that downstream sections can depend on (signature format)
+- `spec_deviations`: Anything implemented differently from the section spec, with rationale. Empty list if spec was followed exactly.
+- `context_for_next`: One paragraph summarizing what downstream sections need to know. Focus on interface contracts, not implementation details.
 
 ## Rules
 
@@ -155,7 +167,13 @@ Output ONLY valid JSON, no other text:
       "fix": "Use parameterized query: `cursor.execute('SELECT * FROM users WHERE id = %s', (uid,))`"
     }
   ],
-  "gates": {"mypy": "pass", "bandit": "fail", "coverage_pct": null}
+  "gates": {"mypy": "pass", "bandit": "fail", "coverage_pct": null},
+  "section_outcome": {
+    "files_changed": ["src/api/users.py", "tests/test_api_users.py"],
+    "interfaces_exposed": ["get_user(uid: str) -> User", "list_users(filters: UserFilter) -> list[User]"],
+    "spec_deviations": [],
+    "context_for_next": "API user endpoints at src/api/users.py — SQL injection must be fixed before downstream sections use these endpoints."
+  }
 }
 ```
 
@@ -176,7 +194,13 @@ Output ONLY valid JSON, no other text:
       "fix": "Split into 3 functions: `_read_yaml`, `_validate`, `_merge_defaults`"
     }
   ],
-  "gates": {"mypy": "pass", "bandit": "pass", "coverage_pct": null}
+  "gates": {"mypy": "pass", "bandit": "pass", "coverage_pct": null},
+  "section_outcome": {
+    "files_changed": ["src/config/loader.py", "src/config/models.py", "tests/test_config.py"],
+    "interfaces_exposed": ["load_config(path: Path) -> AppConfig", "AppConfig dataclass"],
+    "spec_deviations": [],
+    "context_for_next": "Config loading available via load_config() from src/config/loader.py. Returns AppConfig dataclass. Downstream sections needing config should import from this module."
+  }
 }
 ```
 
@@ -188,7 +212,13 @@ Output ONLY valid JSON, no other text:
   "section": "section-01-foundation",
   "summary": "Clean implementation. All spec requirements met, types correct, no issues found.",
   "issues": [],
-  "gates": {"mypy": "pass", "bandit": "pass", "coverage_pct": null}
+  "gates": {"mypy": "pass", "bandit": "pass", "coverage_pct": null},
+  "section_outcome": {
+    "files_changed": ["src/core/__init__.py", "src/core/types.py", "tests/test_core_types.py"],
+    "interfaces_exposed": ["Result[T] generic", "AppError base exception", "UserId NewType"],
+    "spec_deviations": [],
+    "context_for_next": "Foundation types at src/core/types.py. All sections should use Result[T] for fallible operations and AppError subclasses for domain errors."
+  }
 }
 ```
 
