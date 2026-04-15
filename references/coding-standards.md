@@ -6,9 +6,11 @@ Read this file at the start of every section implementation. These standards app
 
 ## Before Writing Any Code
 
-1. **Define type signatures first.** Write the function/class headers with full annotations before the body. This forces you to think about the interface before the implementation.
+1. **Review eval definitions first.** Read the section's Eval Definitions block. Capability evals define what new behavior must work; regression evals define what existing behavior must not break. These are your acceptance criteria — if you cannot map each eval to a test, the section spec needs an AMEND mutation before you start coding.
 
-2. **Define custom exceptions.** If this section introduces new error conditions, define specific exception classes at the top:
+2. **Define type signatures first.** Write the function/class headers with full annotations before the body. This forces you to think about the interface before the implementation.
+
+3. **Define custom exceptions.** If this section introduces new error conditions, define specific exception classes at the top:
    ```python
    class PaymentProcessingError(Exception):
        """Raised when a payment cannot be processed."""
@@ -17,9 +19,9 @@ Read this file at the start of every section implementation. These standards app
            self.payment_id = payment_id
    ```
 
-3. **Write test function signatures first.** From the TDD stubs in `claude-plan-tdd.md`, write test function skeletons before implementing. This clarifies what "done" looks like.
+4. **Write test function signatures first.** From the TDD stubs in `claude-plan-tdd.md`, write test function skeletons before implementing. This clarifies what "done" looks like.
 
-4. **Identify security boundary inputs.** Any data arriving from: user input, external APIs, file system, database queries — must be validated at the boundary. Mark these explicitly with a comment before implementing.
+5. **Identify security boundary inputs.** Any data arriving from: user input, external APIs, file system, database queries — must be validated at the boundary. Mark these explicitly with a comment before implementing.
 
 ---
 
