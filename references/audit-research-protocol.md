@@ -1,5 +1,19 @@
 # Audit Research Protocol (CORAL-Inspired Evolutionary Loop)
 
+## Output Compression
+
+Findings files use table-first format. No filler prose.
+
+**Per findings file:**
+- Lead with `| Finding | Evidence | Impact |` table for key facts.
+- Bullets for lists. Fragments OK. No section-intro sentences.
+- Max 15 words per prose sentence. No hedging.
+- Open Questions: numbered list only, no elaboration.
+
+**Agent BREVITY RULE** (existing, reinforced): 400 words max per agent response.
+
+---
+
 Research is NOT a linear sequence. It is an evolutionary loop where each wave of agents builds on the discoveries of previous waves. Agents share knowledge through `findings.md` on disk. The loop continues until understanding is comprehensive enough to identify gaps.
 
 ## Overview
@@ -106,6 +120,10 @@ Topic assignment example for 15 topics with 6 agents:
 - Agent 6: rt-06 (background jobs), rt-08 (business logic), rt-09 (data flow)
 
 Generate missions from Wave 0's open questions + the assigned topics. Each agent also gets:
+
+### Empirical Context
+
+If `{planning_dir}/analysis-data.yaml` exists, include it in each Wave 1 agent's context alongside `findings.md` and `scan-summary.md`. It contains git analysis (file churn, contributor patterns, commit frequency, test-to-code ratio) and language-specific tool results (lint violations, type errors, dependency vulnerabilities). Agents should use this data to prioritize their investigation — for example, focusing on high-churn files or areas with zero test coverage. Do not re-run the analysis commands — use the pre-computed data.
 
 ### Codebase Agent Prompt Pattern
 
@@ -259,6 +277,50 @@ After all Wave 1 agents return, main Claude reads the FULL findings.md and write
 ### Decision: {Launch Wave 2 with {M} agents / Proceed to Gap Identification}
 ```
 
+### Research Quality Gate
+
+Before deciding on Wave 2, evaluate each topic's findings:
+
+1. **Question coverage**: Each assigned question from `research-topics.yaml` must be explicitly answered. A topic with 3 questions and only 1 addressed fails.
+2. **Source citations**: Codebase findings must cite file paths. Ecosystem findings must cite URLs. Zero citations = fail.
+3. **Depth guard**: Minimum 150 words per topic (guards against shallow "this exists" responses).
+4. **Open questions documented**: Each finding must include an "Open Questions" section (even if "None identified").
+
+Failed topics are added to the Wave 2 mission list: "Topic {id} failed quality gate: {reason}. Re-investigate with deeper analysis."
+
+Record gate results in `findings-manifest.yaml` (see below) and in `.deepstate/metrics.json` if metrics collection is active.
+
+### Findings Manifest Generation
+
+After the reflection, generate `{planning_dir}/findings-manifest.yaml`:
+
+```yaml
+generated_after: wave-1
+topics_covered:
+  - id: rt-01
+    status: resolved    # resolved | partial | open
+    confidence: high    # high | medium | low
+    key_finding: "one-line summary"
+    source_file: findings/rt-01-auth.md
+  - id: rt-05
+    status: partial
+    confidence: medium
+    key_finding: "summary"
+    open_questions:
+      - "What is the p95 latency?"
+
+contradictions:
+  - between: [rt-01, rt-04]
+    description: "Agent 1 says X, Agent 4 says Y"
+
+research_quality:
+  wave: 1
+  topics_passed: 12
+  topics_failed: 3
+```
+
+Wave 2+ agents read `findings-manifest.yaml` instead of full `findings.md` for overview context. If they need detail on a specific topic, they read the individual `findings/{topic}.md` file.
+
 ### Decision Criteria for Wave 2
 
 Launch Wave 2 if ANY of:
@@ -356,6 +418,32 @@ If yes: launch 1-2 ultra-targeted agents (mini Wave 3), update findings, revise 
 | All agents return shallow results | Reflection catches this. Wave 2 goes deeper on the most critical areas rather than broad. |
 
 ---
+
+## Architecture audit (after Wave 0, opportunistic)
+
+After Wave 0's quick scan and before Topic Enumeration, run a
+lightweight architecture audit using `scripts/lib/architecture_audit.py`:
+
+```bash
+uv run python -c "
+from pathlib import Path
+from scripts.lib.architecture_audit import run_audit, render_audit_markdown
+result = run_audit(Path('.'))
+print(render_audit_markdown(result))
+" > "${planning_dir}/findings/architecture-audit.md"
+```
+
+The audit returns three signal lists:
+
+* `shallow_modules` — interface ≈ implementation
+* `hypothetical_seams` — abstract base / Protocol with one concrete child
+* `scattered_knowledge` — small files in one directory sharing a stem
+
+If `result.total > 0`, `/deep plan` will surface a single
+`AskUserQuestion` to offer folding one of the candidates into the plan
+(see the wiring in `skills/deep/SKILL.md`). Persist the rendered
+markdown either way — it informs `agents/section-writer.md` overlap
+checks during implement.
 
 ## Self-Termination
 

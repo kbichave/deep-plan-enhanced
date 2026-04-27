@@ -4,6 +4,48 @@ Read this file at the start of every section implementation. These standards app
 
 ---
 
+## Vocabulary
+
+The architecture-audit prompts and the `improve-codebase-architecture`
+skill share a small vocabulary that this file uses without redefining
+it. The full definitions live in `skills/improve-codebase-architecture/LANGUAGE.md`.
+
+* **Module:** any unit with an interface and an implementation.
+* **Depth:** leverage at the interface — a deep module concentrates
+  substantial implementation behind a simple, stable interface.
+* **Seam:** the place an interface lives. One adapter is a hypothetical
+  seam; two adapters is a real seam.
+* **Deletion test:** if removing a module concentrates complexity
+  across many callers, it earned its keep.
+
+## TDD shape: tracer bullet, not horizontal slice
+
+Adopted from `skills/tdd/SKILL.md`. The rule beats the prose, so:
+
+1. Write **one** failing test that exercises the smallest end-to-end
+   slice of new behavior.
+2. Implement the minimum to make that one test pass.
+3. Move to the next behavior. Repeat.
+
+Anti-patterns:
+
+* **Horizontal slice:** writing every test up front before any
+  implementation. The tests describe imagined behavior, not actual
+  behavior, and become insensitive to real changes.
+* **Mock-heavy unit tests:** prefer integration-style tests against the
+  public interface. Mock only at system boundaries (network, file
+  system, subprocess).
+* **Refactor before green:** never refactor structure while tests are
+  failing. Make every commit a state where the program works.
+
+## Commit shape: tiniest possible
+
+Adopted from `skills/request-refactor-plan` via the upstream principle:
+**make each step as small as possible so that the program always
+works.** A commit that leaves the build broken is a bug. Split rather
+than batch. The reviewer should be able to bisect with `git bisect
+run`.
+
 ## Before Writing Any Code
 
 1. **Review eval definitions first.** Read the section's Eval Definitions block. Capability evals define what new behavior must work; regression evals define what existing behavior must not break. These are your acceptance criteria — if you cannot map each eval to a test, the section spec needs an AMEND mutation before you start coding.

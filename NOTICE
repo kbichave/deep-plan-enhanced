@@ -1,0 +1,56 @@
+# Third-Party Notices
+
+This plugin vendors several skills from the upstream
+[mattpocock/skills](https://github.com/mattpocock/skills) repository
+under the terms of the MIT License.
+
+## Vendored Skills
+
+The following directories under `skills/` are copied from upstream
+unchanged unless explicitly noted:
+
+| Path | Upstream | Notes |
+|------|----------|-------|
+| `skills/grill-me/` | https://github.com/mattpocock/skills/tree/main/grill-me | Verbatim. Cross-referenced from `references/interview-protocol.md`. |
+| `skills/tdd/` | https://github.com/mattpocock/skills/tree/main/tdd | Verbatim. Cross-referenced from `references/coding-standards.md` and `agents/section-writer.md`. |
+| `skills/ubiquitous-language/` | https://github.com/mattpocock/skills/tree/main/ubiquitous-language | Verbatim. Cross-referenced from `references/audit-topic-enumeration.md`. |
+| `skills/improve-codebase-architecture/` | https://github.com/mattpocock/skills/tree/main/improve-codebase-architecture | Verbatim. Wired into `/deep plan` and `/deep implement` as opportunistic prompts. |
+| `skills/obsidian-vault/` | https://github.com/mattpocock/skills/tree/main/obsidian-vault | Verbatim. Used as backing store for long-lived knowledge via the `vault-curator` subagent. |
+| `skills/write-a-skill/` | https://github.com/mattpocock/skills/tree/main/write-a-skill | Verbatim. Standalone meta-skill for plugin extension. |
+| `skills/zoom-out/` | https://github.com/mattpocock/skills/tree/main/zoom-out | Verbatim. Standalone strategic step-back skill. |
+
+## Upstream License (MIT)
+
+```
+MIT License
+
+Copyright (c) 2026 Matt Pocock
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## Modifications
+
+No content modifications were made to the vendored skill files at vendor
+time. If a vendored skill is later edited in this repository, the change
+will be noted in the table above and recorded in `CHANGELOG.md`.
+
+The cross-reference edits made to *this* repository's existing files
+(under `references/` and `agents/`) cite these skills by path; they do
+not modify the upstream sources.

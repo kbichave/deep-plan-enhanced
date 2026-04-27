@@ -2,6 +2,27 @@
 
 This document defines the research decision and execution flow for steps 6-7 of the deep-plan workflow.
 
+## Artifact Freshness Check
+
+Before starting research, check if `claude-research.md` already exists in `{planning_dir}`:
+
+```
+IF claude-research.md exists AND mtime < 6h:
+  Read it. Validate it covers the current spec topics.
+  IF it covers ≥ 80% of spec topics: skip re-research, proceed to spec.
+  IF gaps exist: research gaps only (append to existing file, do not rewrite).
+
+IF claude-research.md exists AND mtime ≥ 6h:
+  Treat as stale — run fresh research.
+
+IF claude-research.md does not exist:
+  Run full research per steps 6-7 below.
+```
+
+This prevents full re-research on session resume.
+
+---
+
 ## Overview
 
 ```

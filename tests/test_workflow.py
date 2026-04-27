@@ -13,6 +13,7 @@ from lib.workflow import (
     create_plan_all_workflow,
     create_autonomous_workflow,
     _toposort,
+    _has_discovery_artifacts,
     _REFERENCE_FILES,
     _AUDIT_REFERENCE_FILES,
     _CONTEXT_TASK_IDS,
@@ -132,16 +133,91 @@ class TestCreatePlanWorkflow:
         for issue in tracker.list_issues():
             assert issue["status"] == "open"
 
+    # ── discovery_findings param ───────────────────────────────────
+
+    def test_no_discovery_uses_standard_interview(self, tracker, plan_context):
+        """Without discovery_findings, interview uses interview-protocol.md."""
+        create_plan_workflow(tracker, **plan_context)
+        issue = tracker.show("detailed-interview")
+        assert "interview-protocol.md" in issue["description"]
+        assert "discovery-bridge.md" not in issue["description"]
+
+    def test_with_discovery_artifacts_uses_bridge(self, tracker, plan_context, tmp_path):
+        """When discovery artifacts exist, interview step uses bridge passthrough."""
+        discovery_dir = tmp_path / "discovery"
+        discovery_dir.mkdir()
+        (discovery_dir / "interview.md").write_text("Q: foo\nA: bar")
+        (discovery_dir / "findings").mkdir()
+        (discovery_dir / "findings" / "topic-01-auth.md").write_text("finding")
+
+        create_plan_workflow(tracker, **plan_context, discovery_findings=str(discovery_dir))
+        issue = tracker.show("detailed-interview")
+        assert "discovery-bridge.md" in issue["description"]
+        assert "interview-protocol.md" not in issue["description"]
+        assert "Do NOT conduct a new interview" in issue["description"]
+
+    def test_with_discovery_artifacts_save_interview_uses_passthrough(self, tracker, plan_context, tmp_path):
+        """When discovery artifacts exist, save-interview step uses passthrough description."""
+        discovery_dir = tmp_path / "discovery"
+        discovery_dir.mkdir()
+        (discovery_dir / "interview.md").write_text("Q: foo\nA: bar")
+        (discovery_dir / "findings").mkdir()
+
+        create_plan_workflow(tracker, **plan_context, discovery_findings=str(discovery_dir))
+        issue = tracker.show("save-interview")
+        assert "Derived from discovery interview" in issue["description"]
+
+    def test_discovery_findings_path_missing_interview_falls_back(self, tracker, plan_context, tmp_path):
+        """Missing interview.md → _has_discovery_artifacts returns False → standard interview."""
+        discovery_dir = tmp_path / "discovery"
+        discovery_dir.mkdir()
+        # Only findings/ present, no interview.md
+        (discovery_dir / "findings").mkdir()
+
+        create_plan_workflow(tracker, **plan_context, discovery_findings=str(discovery_dir))
+        issue = tracker.show("detailed-interview")
+        assert "interview-protocol.md" in issue["description"]
+
+    def test_discovery_findings_none_falls_back(self, tracker, plan_context):
+        """None discovery_findings → standard interview."""
+        create_plan_workflow(tracker, **plan_context, discovery_findings=None)
+        issue = tracker.show("detailed-interview")
+        assert "interview-protocol.md" in issue["description"]
+
+
+# ── _has_discovery_artifacts ────────────────────────────────────────
+
+
+class TestHasDiscoveryArtifacts:
+    def test_returns_false_for_none(self):
+        assert _has_discovery_artifacts(None) is False
+
+    def test_returns_false_for_nonexistent_path(self, tmp_path):
+        assert _has_discovery_artifacts(str(tmp_path / "nonexistent")) is False
+
+    def test_returns_false_missing_interview(self, tmp_path):
+        (tmp_path / "findings").mkdir()
+        assert _has_discovery_artifacts(str(tmp_path)) is False
+
+    def test_returns_false_missing_findings_dir(self, tmp_path):
+        (tmp_path / "interview.md").write_text("Q: foo")
+        assert _has_discovery_artifacts(str(tmp_path)) is False
+
+    def test_returns_true_with_both(self, tmp_path):
+        (tmp_path / "interview.md").write_text("Q: foo")
+        (tmp_path / "findings").mkdir()
+        assert _has_discovery_artifacts(str(tmp_path)) is True
+
 
 # ── create_discovery_workflow ───────────────────────────────────────
 
 
 class TestCreateDiscoveryWorkflow:
-    def test_creates_12_step_issues(self, tracker, plan_context):
-        # 10 original steps + topic-enumeration + coverage-validation = 12
+    def test_creates_13_step_issues(self, tracker, plan_context):
+        # 11 original steps + empirical-data-collection + coverage-validation = 13
         create_discovery_workflow(tracker, **plan_context)
         issues = tracker.list_issues()
-        assert len(issues) == 12
+        assert len(issues) == 13
 
     def test_epic_title_contains_spec_name(self, tracker, plan_context):
         title = create_discovery_workflow(tracker, **plan_context)
@@ -163,9 +239,14 @@ class TestCreateDiscoveryWorkflow:
         issue = tracker.show("deep-research")
         assert "topic-enumeration" in issue["depends_on"]
 
-    def test_topic_enumeration_depends_on_quick_scan(self, tracker, plan_context):
+    def test_topic_enumeration_depends_on_empirical_data(self, tracker, plan_context):
         create_discovery_workflow(tracker, **plan_context)
         issue = tracker.show("topic-enumeration")
+        assert "empirical-data-collection" in issue["depends_on"]
+
+    def test_empirical_data_depends_on_quick_scan(self, tracker, plan_context):
+        create_discovery_workflow(tracker, **plan_context)
+        issue = tracker.show("empirical-data-collection")
         assert "quick-scan" in issue["depends_on"]
 
     def test_coverage_validation_depends_on_deep_research(self, tracker, plan_context):
@@ -361,3 +442,87 @@ class TestCreatePlanAllWorkflow:
         )
         p01 = tracker.show("phase-P01")
         assert "phase-P08" in p01["depends_on"]
+
+    def test_first_phase_uses_bridge_when_discovery_artifacts_exist(self, tmp_path):
+        """plan-all first phase uses bridge when discovery artifacts are present."""
+        tracker = DeepStateTracker(state_dir=tmp_path / ".deepstate")
+        phases_dir = tmp_path / "phases"
+        phases_dir.mkdir()
+        (phases_dir / "phasing-overview.md").write_text(
+            "## Dependency Graph\n\nP01\n"
+        )
+        # Create discovery artifacts in parent of phases_dir (where plan-all looks)
+        discovery_dir = tmp_path
+        (discovery_dir / "interview.md").write_text("Q: foo\nA: bar")
+        (discovery_dir / "findings").mkdir()
+
+        create_plan_all_workflow(
+            tracker,
+            phases_dir=str(phases_dir),
+            plugin_root="/fake",
+            discovery_findings=str(discovery_dir),
+        )
+        issue = tracker.show("P01-detailed-interview")
+        assert "discovery-bridge.md" in issue["description"]
+        assert "Do NOT conduct a new interview" in issue["description"]
+
+    def test_first_phase_uses_standard_interview_when_no_discovery(self, tmp_path):
+        """plan-all first phase runs standard interview when no discovery artifacts."""
+        tracker = DeepStateTracker(state_dir=tmp_path / ".deepstate")
+        phases_dir = tmp_path / "phases"
+        phases_dir.mkdir()
+        (phases_dir / "phasing-overview.md").write_text(
+            "## Dependency Graph\n\nP01\n"
+        )
+        # No discovery artifacts in tmp_path
+
+        create_plan_all_workflow(
+            tracker,
+            phases_dir=str(phases_dir),
+            plugin_root="/fake",
+            discovery_findings=str(tmp_path),
+        )
+        issue = tracker.show("P01-detailed-interview")
+        # Should use default task description, NOT bridge
+        assert "discovery-bridge.md" not in issue["description"]
+
+    def test_autonomous_first_phase_uses_bridge_when_discovery_exists(self, tmp_path):
+        """auto first phase uses bridge passthrough when discovery artifacts present."""
+        tracker = DeepStateTracker(state_dir=tmp_path / ".deepstate")
+        phases_dir = tmp_path / "phases"
+        phases_dir.mkdir()
+        (phases_dir / "phasing-overview.md").write_text(
+            "## Dependency Graph\n\nP01\n"
+        )
+        discovery_dir = tmp_path
+        (discovery_dir / "interview.md").write_text("Q: foo\nA: bar")
+        (discovery_dir / "findings").mkdir()
+
+        create_autonomous_workflow(
+            tracker,
+            phases_dir=str(phases_dir),
+            plugin_root="/fake",
+            discovery_findings=str(discovery_dir),
+        )
+        issue = tracker.show("P01-detailed-interview")
+        assert "discovery-bridge.md" in issue["description"]
+        assert "SELF-INTERVIEW" not in issue["description"]
+
+    def test_autonomous_first_phase_self_interviews_without_discovery(self, tmp_path):
+        """auto first phase uses self-interview when no discovery artifacts."""
+        tracker = DeepStateTracker(state_dir=tmp_path / ".deepstate")
+        phases_dir = tmp_path / "phases"
+        phases_dir.mkdir()
+        (phases_dir / "phasing-overview.md").write_text(
+            "## Dependency Graph\n\nP01\n"
+        )
+        # No discovery artifacts
+
+        create_autonomous_workflow(
+            tracker,
+            phases_dir=str(phases_dir),
+            plugin_root="/fake",
+            discovery_findings=str(tmp_path),
+        )
+        issue = tracker.show("P01-detailed-interview")
+        assert "SELF-INTERVIEW" in issue["description"]

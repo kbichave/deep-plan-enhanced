@@ -29,6 +29,8 @@ from lib.tasks import BATCH_SIZE
 def load_prompt_template(plugin_root: Path) -> str:
     """Load the section writer prompt template.
 
+    Prefers user.md (split template) over prompt.md (legacy monolithic).
+
     Args:
         plugin_root: Path to the plugin root directory
 
@@ -36,33 +38,51 @@ def load_prompt_template(plugin_root: Path) -> str:
         The prompt template content
 
     Raises:
-        FileNotFoundError: If template file doesn't exist
+        FileNotFoundError: If no template file exists
     """
-    template_path = plugin_root / "prompts" / "section_writer" / "prompt.md"
-    if not template_path.exists():
-        raise FileNotFoundError(f"Prompt template not found: {template_path}")
+    # Prefer split template (user.md) over legacy monolithic (prompt.md)
+    user_template = plugin_root / "prompts" / "section_writer" / "user.md"
+    legacy_template = plugin_root / "prompts" / "section_writer" / "prompt.md"
 
-    return template_path.read_text().strip()
+    if user_template.exists():
+        return user_template.read_text().strip()
+    if legacy_template.exists():
+        return legacy_template.read_text().strip()
+
+    raise FileNotFoundError(
+        f"Prompt template not found at {user_template} or {legacy_template}"
+    )
 
 
-def fill_template(template: str, planning_dir: str, section_name: str) -> str:
+def fill_template(
+    template: str,
+    planning_dir: str,
+    section_name: str,
+    context_file_path: str | None = None,
+) -> str:
     """Fill in the prompt template placeholders.
 
     Args:
         template: The prompt template with placeholders
         planning_dir: Path to the planning directory
         section_name: Section name without .md extension (e.g., "section-01-setup")
+        context_file_path: Path to the per-section context file from extraction.
+            If None, substitutes the full plan path as fallback.
 
     Returns:
         Filled-in prompt ready for use
     """
     section_filename = f"{section_name}.md"
 
+    # Fallback: if no context file, point at the full plan
+    effective_context = context_file_path or f"{planning_dir}/claude-plan.md"
+
     return (
         template
         .replace("{PLANNING_DIR}", planning_dir)
         .replace("{SECTION_FILENAME}", section_filename)
         .replace("{SECTION_NAME}", section_name)
+        .replace("{CONTEXT_FILE_PATH}", effective_context)
     )
 
 
@@ -211,8 +231,13 @@ def generate_batch_tasks(
     planning_dir_str = str(planning_dir.resolve())
 
     for section_name in batch_sections:
-        # Write full prompt to file
-        filled_prompt = fill_template(template, planning_dir_str, section_name)
+        # Resolve context file path (from context extraction if available)
+        context_file = planning_dir / "sections" / ".context" / f"{section_name}.md"
+        context_path = str(context_file) if context_file.exists() else None
+
+        filled_prompt = fill_template(
+            template, planning_dir_str, section_name, context_path,
+        )
         prompt_file = write_prompt_file(prompts_dir, section_name, filled_prompt)
         prompt_files.append(str(prompt_file))
 

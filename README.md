@@ -279,6 +279,36 @@ This project combines patterns from [deep-plan](https://github.com/piercelamb/de
 | Quality gates per section (tests, no stubs) | plan-cascade pattern |
 | 3-strike error escalation | planning-with-files pattern |
 
+## Bundled Skills
+
+This plugin vendors a curated subset of [mattpocock/skills](https://github.com/mattpocock/skills) (MIT). Full attribution is in [`NOTICE`](NOTICE).
+
+| Skill | Slash command | Use |
+|-------|--------------|-----|
+| `grill-me` | `/grill-me` | Sequential decision-tree interview with recommended answers. Default style for `/deep plan` interviews. |
+| `tdd` | `/tdd` | Tracer-bullet test-driven development. Cited from `references/coding-standards.md`. |
+| `ubiquitous-language` | `/ubiquitous-language` | Domain glossary extraction. Always-on topic in `/deep discovery`. |
+| `improve-codebase-architecture` | `/improve-codebase-architecture` | Shallow-vs-deep module audit. Auto-prompts during `/deep plan` and `/deep implement`. |
+| `obsidian-vault` | `/obsidian-vault` | Note management. Backing store for the knowledge vault below. |
+| `write-a-skill` | `/write-a-skill` | Standalone meta-skill for extending the plugin. |
+| `zoom-out` | `/zoom-out` | Strategic step-back. Pairs with `/deep auto`. |
+
+See [`docs/skills-bundled.md`](docs/skills-bundled.md) for the full table including when each is auto-invoked vs. manually invocable.
+
+## Knowledge Vault
+
+`/deep` persists long-lived knowledge (ubiquitous-language glossary, architecture decision records, curated discovery findings) into an Obsidian vault. The vault path resolves in this order:
+
+1. `$DEEP_OBSIDIAN_VAULT` if set
+2. `~/Obsidian/deep-plan/` if it already exists
+3. The first `/deep` run otherwise prompts once: *create vault at `~/Obsidian/deep-plan/`?* (yes / specify path / no). The "no" answer is remembered for the session.
+
+When no vault is configured, glossary terms and ADRs land in `~/.claude/projects/<slug>/memory/` instead — graceful degrade. A `vault-curator` subagent runs at the end of every mode to decide which artifacts deserve long-lived storage and which stay local. See [`docs/vault.md`](docs/vault.md).
+
+## Skill-aware Routing
+
+Between major workflow phases, `/deep` consults a `skill-router` subagent that enumerates other skills installed on the machine (user, plugin, or project scope) and decides which ones are relevant to the current step. High-confidence matches auto-invoke (e.g., `claude-api` when a file imports `anthropic`); medium-confidence matches surface a single multi-select prompt; low-confidence matches log only. Side-effect skills (`pr-reply`, `schedule`, `pptx`, `internal-comms`, etc.) never auto-invoke. See [`docs/skill-routing.md`](docs/skill-routing.md).
+
 ## Acknowledgments
 
 - [deep-plan](https://github.com/piercelamb/deep-plan) by Pierce Lamb — the planning pipeline this project extends (MIT License)
@@ -287,6 +317,7 @@ This project combines patterns from [deep-plan](https://github.com/piercelamb/de
 - [STORM](https://arxiv.org/abs/2402.14207) by Stanford — outline-first research enumeration for coverage breadth
 - [Deep-Research-skills](https://github.com/Weizhena/Deep-Research-skills) by Weizhena — research skill patterns for discovery agents
 - [python-skills](https://github.com/wdm0006/python-skills) by wdm0006 — Python coding standards and advanced quality gates
+- [mattpocock/skills](https://github.com/mattpocock/skills) by Matt Pocock — vendored skills for grill-me / tdd / ubiquitous-language / improve-codebase-architecture / obsidian-vault / write-a-skill / zoom-out (MIT License, see [`NOTICE`](NOTICE))
 
 ## License
 

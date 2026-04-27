@@ -35,6 +35,17 @@ VALID_REVIEW_MODES = {"external_llm", "opus_subagent", "sonnet_subagent", "skip"
 SESSIONS_ROOT = Path.home() / ".claude" / "marketplace" / "deep-plan-enhanced" / "sessions"
 
 
+def detect_discovery_artifacts(planning_dir: Path) -> Path | None:
+    """Return discovery dir path if discovery artifacts exist in same or parent dir.
+
+    Checks: interview.md + findings/ directory (minimum viable discovery output).
+    """
+    for d in [planning_dir, planning_dir.parent]:
+        if (d / "interview.md").exists() and (d / "findings").is_dir():
+            return d
+    return None
+
+
 def project_slug(project_path: Path) -> str:
     """Deterministic, human-readable slug for a project path.
 
@@ -398,8 +409,11 @@ def setup_session(
             discovery_findings=str(file_path.parent),
         )
     else:
+        discovery_dir = detect_discovery_artifacts(planning_dir)
         epic_title = create_plan_workflow(
-            tracker, **context,
+            tracker,
+            **context,
+            discovery_findings=str(discovery_dir) if discovery_dir else None,
         )
 
     # Store epic reference in config

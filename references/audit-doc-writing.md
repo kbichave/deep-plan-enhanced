@@ -2,6 +2,19 @@
 
 Defines how deep-discovery step 8 generates audit documents. Files are dynamic, focused, and quality-gated.
 
+## Output Compression
+
+Audit docs are intermediate artifacts — compress aggressively.
+
+- No section-intro sentences. Start every section with content, not description.
+- Bullets > paragraphs. Tables > bullets for comparisons.
+- Max 15 words per prose sentence. No hedging ("might", "could potentially").
+- No filler transitions ("Additionally", "Furthermore", "It is worth noting").
+- `current-state/` files: lead with a `| Metric | Value |` table (line counts, file counts, dep counts).
+- `gaps/` files: use `| Gap | Severity | Effort | Affected |` table per gap.
+
+---
+
 ## Core Rules
 
 1. **One topic per file.** If a file would exceed ~300 lines, split it.
@@ -171,6 +184,55 @@ After every batch of 3-4 files is written:
 3. Fix: update files, add cross-references, merge redundant files, create missing files
 
 This prevents "island effect" where each subagent writes in isolation.
+
+### Build-vs-Buy Quality Gate (additional checks for `build-vs-buy/` files)
+
+For each file in `build-vs-buy/`:
+1. **Checklist completeness**: Every recommended package has a filled verification checklist. Unchecked items without `UNVERIFIED` label = fail.
+2. **Minimum alternatives**: At least 2 alternatives evaluated per capability (not counting build-custom).
+3. **Build-custom present**: The "Build Custom" section must exist with a maintenance burden estimate.
+4. **Reasoning specificity**: Recommendation text >50 words and references at least one concrete factor.
+
+For files with >1 `UNVERIFIED` package, request regeneration with instructions to verify or replace flagged packages.
+
+Append quality summary to the audit `README.md`:
+
+```markdown
+## Build-vs-Buy Quality
+| Capability | Packages Evaluated | Verified | Unverified | Gate |
+|---|---|---|---|---|
+| {name} | {count} | {count} | {count} | PASS/WARN |
+```
+
+---
+
+## Eval-on-Write Calibration Examples
+
+These examples anchor the 1-10 scoring scale for Completeness, Specificity, and Actionability.
+
+### Example 1: Score 9/10 (Excellent)
+
+> **Topic:** Current State: Request Flow
+>
+> The request lifecycle spans 4 files across 2 packages. Ingress enters through `src/api/router.py:handle_request()` (line 23), which dispatches to handler functions in `src/api/handlers/`. The auth middleware at `src/middleware/auth.py:verify_token()` adds ~15ms latency per request (measured via `time.perf_counter` in debug mode). Database queries in `src/db/queries.py` average 3 queries per request with no connection pooling — the `get_connection()` call on line 42 creates a new connection each time. Total p95 latency: ~180ms, of which ~120ms is database. See `../gaps/tier1-blockers.md` for the connection pooling gap analysis.
+
+**Why this scores 9/10:** Specific (file paths, function names, measured latencies), complete (covers full request lifecycle from ingress to response), and actionable (each bottleneck has a concrete location). Loses one point because database query analysis uses estimated counts rather than EXPLAIN output.
+
+### Example 2: Score 7/10 (Passes threshold)
+
+> **Topic:** Gaps: Authentication Weaknesses
+>
+> The auth module (`src/auth/`) uses JWT with a hardcoded secret in `config.py`. Token expiry is set to 24 hours, which is longer than recommended for this type of application. The refresh token flow exists but lacks rotation — the same refresh token can be reused indefinitely. Estimated impact: affects all 14 API endpoints that require authentication.
+
+**Why this scores 7/10:** Identifies the right problems, names the affected module, and quantifies impact. Loses points for not specifying exact config file lines, not naming the OWASP guideline being violated, and using "longer than recommended" without stating what the recommendation is.
+
+### Example 3: Score 4/10 (Fails, triggers regeneration)
+
+> **Topic:** Architecture: API Design
+>
+> The API follows REST conventions. Input validation could be improved in several areas. The testing strategy for API endpoints should be enhanced. Consider adding rate limiting and improving error handling consistency.
+
+**Why this scores 4/10:** Generic advice that applies to any API. No file paths, no function names, no version numbers. "Could be improved" and "should be enhanced" are not findings — they are opinions without evidence. A passing document must name actual endpoints, reference actual data models, and identify actual validation gaps found during research.
 
 ---
 

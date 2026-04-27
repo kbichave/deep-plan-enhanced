@@ -1,8 +1,18 @@
 # Discovery Bridge Protocol
 
-When plan-all or auto non-first phases reach the research or interview step, this protocol replaces `research-protocol.md`. It reuses discovery artifacts instead of re-researching from scratch.
+When plan-all, auto, or standalone plan reaches the research or interview step after a discovery session, this protocol replaces `research-protocol.md`. It reuses discovery artifacts instead of re-researching from scratch.
 
-**When this file applies:** Only when `discovery_findings` path is set in the task description AND the path contains discovery artifacts. If artifacts are missing, fall back to `references/research-protocol.md`.
+**When this file applies:** When `discovery_findings` path is set in the task description AND the path contains discovery artifacts (`interview.md` + `findings/`). If artifacts are missing, fall back to `references/research-protocol.md`.
+
+## Scope
+
+| Mode | Phases that use bridge |
+|---|---|
+| `plan-all` non-first phases | Always — bridge injected unconditionally |
+| `plan-all` first phase | Only when `interview.md` + `findings/` detected at `discovery_findings` |
+| `auto` non-first phases | Always |
+| `auto` first phase | Only when discovery artifacts detected (otherwise self-interview) |
+| Standalone `plan` | Only when `interview.md` + `findings/` detected in planning dir or parent |
 
 ---
 
@@ -126,7 +136,7 @@ This prevents a stale or mismatched discovery from producing irrelevant research
 
 ## Interview Passthrough
 
-When non-first phases reach the interview step and this file is referenced:
+When this file is referenced for the interview step (any mode, any phase):
 
 ### If `{discovery_findings}/interview.md` exists:
 
@@ -144,6 +154,7 @@ When non-first phases reach the interview step and this file is referenced:
 
 ### If `{discovery_findings}/interview.md` does NOT exist:
 
-- For **plan-all** non-first phases: close interview steps with reason "No discovery interview available — skipping."
-- For **auto** non-first phases: same behavior (close and skip).
-- The first phase always runs its own interview (plan-all) or self-interview (auto) — this file is never used for first phases.
+- **plan-all / auto non-first phases:** close interview steps with reason "No discovery interview available — skipping."
+- **plan-all / auto first phase with discovery detected:** same — close and skip.
+- **Standalone plan with discovery detected:** close and skip.
+- **auto first phase WITHOUT discovery:** self-interview (two subagents) — this file is not referenced in that path.

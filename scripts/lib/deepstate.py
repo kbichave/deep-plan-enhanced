@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -206,3 +207,90 @@ class DeepStateTracker:
         state_file = self.state_dir / "state.json"
         tmp_file.write_text(json.dumps(state, indent=2))
         os.rename(tmp_file, state_file)
+
+
+class MetricsCollector:
+    """Collects per-session metrics to .deepstate/metrics.json.
+
+    Append-only during session. Call record() for each event,
+    finalize() at session end to compute derived metrics.
+    """
+
+    def __init__(self, state_dir: Path) -> None:
+        self.state_dir = state_dir
+        self.metrics_file = state_dir / "metrics.json"
+        self._data: dict = self._load_or_default()
+        if not self.metrics_file.exists():
+            self._save()
+
+    def _load_or_default(self) -> dict:
+        if self.metrics_file.exists():
+            return json.loads(self.metrics_file.read_text())
+        return {
+            "started_at": datetime.now(timezone.utc).isoformat(),
+            "completed_at": None,
+            "wall_clock_seconds": None,
+            "wave_count": 0,
+            "agents_launched": 0,
+            "research_gate_pass": 0,
+            "research_gate_fail": 0,
+            "build_vs_buy_gate_pass": 0,
+            "build_vs_buy_gate_fail": 0,
+            "section_rewrite_count": 0,
+            "findings_manifest_generated": False,
+            "audit_files_generated": 0,
+        }
+
+    def record(self, key: str, value: int | str | bool) -> None:
+        """Set a metric value."""
+        self._data[key] = value
+        self._save()
+
+    def increment(self, key: str, amount: int = 1) -> None:
+        """Increment an integer metric."""
+        self._data[key] = self._data.get(key, 0) + amount
+        self._save()
+
+    def finalize(self) -> dict:
+        """Compute derived metrics and write final state."""
+        self._data["completed_at"] = datetime.now(timezone.utc).isoformat()
+        started = datetime.fromisoformat(self._data["started_at"])
+        completed = datetime.fromisoformat(self._data["completed_at"])
+        self._data["wall_clock_seconds"] = int((completed - started).total_seconds())
+        self._save()
+        return self._data
+
+    def _save(self) -> None:
+        """Atomic write to metrics.json."""
+        tmp_file = self.state_dir / "metrics.json.tmp"
+        self.metrics_file.parent.mkdir(parents=True, exist_ok=True)
+        tmp_file.write_text(json.dumps(self._data, indent=2))
+        os.rename(tmp_file, self.metrics_file)
+
+    def format_dashboard(self) -> str:
+        """Format metrics as a markdown table for summary output."""
+        d = self._data
+        wc = d.get("wall_clock_seconds")
+        time_str = f"{wc // 60}m {wc % 60}s" if wc else "N/A"
+        rp = d.get("research_gate_pass", 0)
+        rf = d.get("research_gate_fail", 0)
+        rt = rp + rf
+        bp = d.get("build_vs_buy_gate_pass", 0)
+        bf = d.get("build_vs_buy_gate_fail", 0)
+        bt = bp + bf
+
+        lines = [
+            "## Session Metrics",
+            "",
+            "| Metric | Value |",
+            "|--------|-------|",
+            f"| Wall clock time | {time_str} |",
+            f"| Research waves | {d.get('wave_count', 0)} |",
+            f"| Agents launched | {d.get('agents_launched', 0)} |",
+            f"| Research quality gate | {rp}/{rt} passed ({rp*100//rt if rt else 0}%) |" if rt else "| Research quality gate | N/A |",
+            f"| Build-vs-buy quality gate | {bp}/{bt} passed ({bp*100//bt if bt else 0}%) |" if bt else "| Build-vs-buy quality gate | N/A |",
+            f"| Section rewrites | {d.get('section_rewrite_count', 0)} |",
+            f"| Audit files generated | {d.get('audit_files_generated', 0)} |",
+            f"| Findings manifest | {'Yes' if d.get('findings_manifest_generated') else 'No'} |",
+        ]
+        return "\n".join(lines)

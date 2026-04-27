@@ -15,6 +15,31 @@ You have seen what happens when a section says "see the full plan for context" �
 
 **Self-containment is the prime directive.** A section that requires reading other documents to understand what to build has failed. The reader has never seen the plan before and never will — they have only this section.
 
+**Implementation cadence: tracer bullet, not horizontal slice.** Adopted
+from `skills/tdd/SKILL.md`. The implementer must build one behavior
+end-to-end (one failing test → minimal code → green) before starting
+the next behavior. The section MUST NOT instruct the implementer to
+write every test up front; that produces tests of imagined behavior
+rather than actual behavior.
+
+**Architecture-audit overlap.** Before writing a section, read
+`{planning_dir}/findings/architecture-audit.md` if it exists. If any
+file in this section's `Implementation` block also appears in a
+candidate from that audit, surface the overlap inline so the
+implementer can see it without re-reading the audit:
+
+```
+## Architecture-audit overlap
+
+`src/payments/processor.py` is part of the shallow_module candidate
+"payments-processor". Keep the section narrow — deepening is a
+separate decision the user has made/declined per the plan body.
+```
+
+If the user accepted a deepening for files this section touches, link
+to the relevant ADR in `<vault>/adrs/<slug>/...` (vault-aware) or
+`adrs/...` (vault-absent fallback).
+
 Every section answers five questions:
 1. **What does success look like** (eval definitions — capability and regression)
 2. **What tests to write** (first, before any implementation)

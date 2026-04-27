@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-04-27
+
+### Added
+- **Bundled Matt Pocock skills** — vendored seven skills from `mattpocock/skills` (MIT) under `skills/`: `grill-me`, `tdd`, `ubiquitous-language`, `improve-codebase-architecture`, `obsidian-vault`, `write-a-skill`, `zoom-out`. Attribution in `NOTICE`.
+- **Knowledge vault** — `/deep` now persists glossary terms, ADRs, and curated findings to an Obsidian-flavored vault. Vault path resolves from `$DEEP_OBSIDIAN_VAULT`, then `~/Obsidian/deep-plan/`, otherwise the first `/deep` run prompts once. New `agents/vault-curator.md` decides per-artifact whether to save or skip. Helpers in `scripts/lib/vault.py`.
+- **Ubiquitous-language glossary** — always-on audit topic in `/deep discovery`. Extraction + diff-merge in `scripts/lib/glossary.py`; cross-project promotion supported.
+- **Architecture audit** — `scripts/lib/architecture_audit.py` detects shallow modules, hypothetical seams, and scattered knowledge. `/deep plan` surfaces a single `AskUserQuestion` to fold a deepening into the plan; `/deep implement` warns at section overlap.
+- **Skill-aware routing** — `/deep` consults `agents/skill-router.md` between phases to invoke or surface other installed skills (e.g., `claude-api`, `code-review`, `simplify`). Side-effect skills demoted to MEDIUM. Mute list at `~/.claude/deep/muted-skills.json`. Helper: `scripts/lib/skills_registry.py`.
+- New documentation: [`docs/vault.md`](docs/vault.md), [`docs/skills-bundled.md`](docs/skills-bundled.md), [`docs/skill-routing.md`](docs/skill-routing.md).
+
+### Changed
+- **Interview style** — sequential decision-tree walk with recommended answers (`grill-me` pattern) is now the default for `/deep plan` and `/deep discovery` interviews. `references/interview-protocol.md` and `references/audit-interview-protocol.md` updated.
+- **TDD shape** — `references/coding-standards.md` now codifies the tracer-bullet rule from `skills/tdd/SKILL.md` and the tiniest-possible-commit rule from `skills/request-refactor-plan`. `agents/section-writer.md` and `agents/opus-plan-reviewer.md` cite the same rules.
+- **Plan writing** — `references/plan-writing.md` now requires a module-design step before sections, citing `skills/improve-codebase-architecture/SKILL.md` and `skills/tdd/deep-modules.md`.
+- **Audit topic enumeration** — `references/audit-topic-enumeration.md` adds `ubiquitous-language` as an always-on category.
+
+### Notes
+- Existing tests remain green. Four new test modules: `tests/test_vault.py`, `tests/test_glossary.py`, `tests/test_architecture_audit.py`, `tests/test_skills_registry.py` (29 tests, all passing).
+- All new scripts are stdlib-only.
+
 ## [0.3.2] - 2026-02-28
 
 ### Fixed

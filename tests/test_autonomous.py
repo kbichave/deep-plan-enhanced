@@ -57,15 +57,20 @@ class TestAutonomousWorkflow:
         state = auto_tracker._load()
         assert state["epic"]["context"]["autonomous"] is True
 
-    def test_review_steps_pre_closed_in_all_phases(self, auto_tracker):
-        """User-review and context-check steps should be pre-closed."""
+    def test_review_steps_open_at_creation(self, auto_tracker):
+        """User-review and context-check steps should be OPEN at creation.
+
+        They are auto-closed at ready time by the SKILL.md workflow loop,
+        NOT pre-closed at creation (which breaks the dependency chain).
+        """
         state = auto_tracker._load()
         for phase in ["P01", "P02", "P03"]:
             for step_id in _HUMAN_INTERACTIVE_STEPS:
                 namespaced = f"{phase}-{step_id}"
                 issue = state["issues"][namespaced]
-                assert issue["status"] == "closed", (
-                    f"{namespaced} should be pre-closed but is {issue['status']}"
+                assert issue["status"] == "open", (
+                    f"{namespaced} should be open (auto-closed at ready time) "
+                    f"but is {issue['status']}"
                 )
 
     def test_interview_steps_remain_open(self, auto_tracker):
@@ -85,20 +90,14 @@ class TestAutonomousWorkflow:
         assert "SELF-INTERVIEW" in issue["description"]
         assert "Do NOT ask a human" in issue["description"]
 
-    def test_non_human_steps_remain_open(self, auto_tracker):
-        """Steps like research-decision and generate-plan should still be open."""
-        non_human = {"research-decision", "execute-research",
-                     "detailed-interview", "save-interview",
-                     "write-spec", "generate-plan",
-                     "external-review", "integrate-feedback",
-                     "apply-tdd", "create-section-index", "generate-section-tasks",
-                     "write-sections", "final-verification", "output-summary"}
+    def test_all_steps_open_at_creation(self, auto_tracker):
+        """ALL steps should be open at creation (no pre-closing in auto mode)."""
         state = auto_tracker._load()
-        for step_id in non_human:
-            namespaced = f"P01-{step_id}"
-            issue = state["issues"][namespaced]
+        for issue_id, issue in state["issues"].items():
+            if issue_id.startswith("phase-"):
+                continue  # phase gates have no deps and are opened first
             assert issue["status"] == "open", (
-                f"{namespaced} should be open but is {issue['status']}"
+                f"{issue_id} should be open at creation but is {issue['status']}"
             )
 
     def test_ready_returns_first_phase_research(self, auto_tracker):
@@ -128,18 +127,28 @@ class TestAutonomousWorkflow:
         ready_ids = {i["id"] for i in auto_tracker.ready()}
         assert "P01-write-spec" in ready_ids
 
-    def test_user_review_skipped_so_tdd_follows_integrate(self, auto_tracker):
-        """After integrate-feedback, apply-tdd should be ready (user-review pre-closed)."""
+    def test_user_review_ready_after_integrate(self, auto_tracker):
+        """After integrate-feedback, user-review should be the ready step.
+
+        In auto mode, the workflow loop auto-closes it, then apply-tdd becomes ready.
+        This tests the dependency chain is intact (no skipped steps).
+        """
         auto_tracker.close("phase-P01", "go")
         chain = [
             "P01-research-decision", "P01-execute-research",
             "P01-detailed-interview", "P01-save-interview",
             "P01-write-spec", "P01-generate-plan",
+            "P01-context-check-pre-review",
             "P01-external-review", "P01-integrate-feedback",
         ]
         for step in chain:
             auto_tracker.close(step, "done")
 
-        # user-review and context-check-pre-review are pre-closed
+        # user-review is the next ready step (auto-closed by workflow loop)
+        ready_ids = {i["id"] for i in auto_tracker.ready()}
+        assert "P01-user-review" in ready_ids
+
+        # After auto-closing user-review, apply-tdd becomes ready
+        auto_tracker.close("P01-user-review", "Auto mode: skipped")
         ready_ids = {i["id"] for i in auto_tracker.ready()}
         assert "P01-apply-tdd" in ready_ids

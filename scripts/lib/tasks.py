@@ -211,17 +211,18 @@ TASK_DEFINITIONS: dict[str, TaskDefinition] = {
 # Steps 4-15 are the main audit workflow (4, 4.5, 5, 5.5 added for topic + coverage steps)
 AUDIT_TASK_IDS: dict[int, str] = {
     4: "quick-scan",
-    5: "topic-enumeration",
-    6: "deep-research",
-    7: "coverage-validation",
-    8: "auto-gaps",
-    9: "stakeholder-interview",
-    10: "generate-audit-docs",
-    11: "generate-build-vs-buy",
-    12: "generate-phase-specs",
-    13: "external-review",
-    14: "user-review",
-    15: "output-summary",
+    5: "empirical-data-collection",
+    6: "topic-enumeration",
+    7: "deep-research",
+    8: "coverage-validation",
+    9: "auto-gaps",
+    10: "stakeholder-interview",
+    11: "generate-audit-docs",
+    12: "generate-build-vs-buy",
+    13: "generate-phase-specs",
+    14: "external-review",
+    15: "user-review",
+    16: "output-summary",
 }
 
 AUDIT_TASK_ID_TO_STEP: dict[str, int] = {v: k for k, v in AUDIT_TASK_IDS.items()}
@@ -232,17 +233,18 @@ AUDIT_STEP_NAMES: dict[int, str] = {
     2: "Detect audit mode",
     3: "Setup session",
     4: "Quick scan",
-    5: "Topic enumeration (research coverage manifest)",
-    6: "Deep research (topic-assigned parallel subagents)",
-    7: "Coverage validation (gap agents for uncovered topics)",
-    8: "Auto gap identification",
-    9: "Stakeholder interview",
-    10: "Generate audit documents",
-    11: "Generate build-vs-buy analysis",
-    12: "Generate phase specs",
-    13: "External LLM review",
-    14: "User review",
-    15: "Output summary",
+    5: "Empirical data collection (git/lint/coverage analysis)",
+    6: "Topic enumeration (research coverage manifest)",
+    7: "Deep research (topic-assigned parallel subagents)",
+    8: "Coverage validation (gap agents for uncovered topics)",
+    9: "Auto gap identification",
+    10: "Stakeholder interview",
+    11: "Generate audit documents",
+    12: "Generate build-vs-buy analysis",
+    13: "Generate phase specs",
+    14: "External LLM review",
+    15: "User review",
+    16: "Output summary",
 }
 
 AUDIT_TASK_DEPENDENCIES: dict[str, list[str]] = {
@@ -253,7 +255,8 @@ AUDIT_TASK_DEPENDENCIES: dict[str, list[str]] = {
     "context-review-mode": ["output-summary"],
     # Main audit workflow — topic enumeration is the coverage contract before research
     "quick-scan": [],
-    "topic-enumeration": ["quick-scan"],
+    "empirical-data-collection": ["quick-scan"],
+    "topic-enumeration": ["empirical-data-collection"],
     "deep-research": ["topic-enumeration"],       # agents now assigned specific topics
     "coverage-validation": ["deep-research"],     # gap agents for uncovered topics
     "auto-gaps": ["coverage-validation"],
@@ -271,6 +274,11 @@ AUDIT_TASK_DEFINITIONS: dict[str, TaskDefinition] = {
         subject="Quick Scan",
         description="Read audit-research-protocol.md. Launch 1 Explore agent for structural scan. Detect tech stack, domain, size. Write scan-summary.md.",
         active_form="Running quick codebase scan",
+    ),
+    "empirical-data-collection": TaskDefinition(
+        subject="Empirical Data Collection",
+        description="Read audit-data-collection.md. Read scan-summary.md for language detection. Run git analysis (file churn, contributors, commit frequency, test-to-code ratio). Execute language-specific tools conditionally. Write analysis-data.yaml.",
+        active_form="Collecting empirical codebase data",
     ),
     "topic-enumeration": TaskDefinition(
         subject="Topic Enumeration",

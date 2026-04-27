@@ -41,6 +41,7 @@ _REFERENCE_FILES: dict[str, str] = {
 # Audit workflow reference files
 _AUDIT_REFERENCE_FILES: dict[str, str] = {
     "quick-scan": "audit-research-protocol.md",
+    "empirical-data-collection": "audit-data-collection.md",
     "topic-enumeration": "audit-topic-enumeration.md",
     "deep-research": "audit-research-protocol.md",
     "coverage-validation": "audit-coverage-validation.md",
@@ -58,6 +59,14 @@ _CONTEXT_TASK_IDS = {
     "context-initial-file",
     "context-review-mode",
 }
+
+
+def _has_discovery_artifacts(discovery_findings: str | None) -> bool:
+    """Return True if path contains actual discovery output (interview.md + findings/)."""
+    if not discovery_findings:
+        return False
+    d = Path(discovery_findings)
+    return (d / "interview.md").exists() and (d / "findings").is_dir()
 
 
 def _build_description(
@@ -97,6 +106,7 @@ def create_plan_workflow(
     planning_dir: str,
     initial_file: str,
     review_mode: str,
+    discovery_findings: str | None = None,
 ) -> str:
     """Create epic + 17 step issues for /deep-plan.
 
@@ -111,6 +121,9 @@ def create_plan_workflow(
         "review_mode": review_mode,
     })
 
+    has_discovery = _has_discovery_artifacts(discovery_findings)
+    bridge_ref = f"{plugin_root}/references/discovery-bridge.md"
+
     # Create step issues in dependency order
     for step_num in sorted(TASK_IDS.keys()):
         task_id = TASK_IDS[step_num]
@@ -123,6 +136,24 @@ def create_plan_workflow(
         description = _build_description(
             task_id, task_def, plugin_root, planning_dir, _REFERENCE_FILES
         )
+
+        # When discovery artifacts exist, skip re-interview and use passthrough
+        if has_discovery:
+            if task_id == "detailed-interview":
+                description = (
+                    f"**Reference:** {bridge_ref}\n\n"
+                    f"Discovery session detected at `{discovery_findings}`.\n"
+                    f"Read discovery interview from `{discovery_findings}/interview.md`. "
+                    "Extract phase-relevant Q&A. Do NOT conduct a new interview.\n"
+                    f"\n**Planning dir:** {planning_dir}"
+                )
+            elif task_id == "save-interview":
+                description = (
+                    "Write discovery-derived interview to claude-interview.md. "
+                    "Add header: `> Derived from discovery interview — not a new stakeholder conversation.`\n"
+                    f"\n**Planning dir:** {planning_dir}"
+                )
+
         tracker.create(task_id, task_def.subject, description=description, depends_on=real_deps)
 
     return epic_title
@@ -350,7 +381,9 @@ def parse_phasing_overview(phases_dir: str) -> dict[str, list[str]]:
 # Interview is no longer skipped — it uses discovery bridge passthrough instead
 _SKIP_STEPS_AFTER_FIRST: set[str] = set()
 
-# Steps requiring human interaction — pre-closed in autonomous mode
+# Steps requiring human interaction — auto-closed at ready time in autonomous mode.
+# NOT pre-closed at creation (that breaks the linear dependency chain by making
+# downstream steps ready before upstream ones complete).
 _HUMAN_INTERACTIVE_STEPS = {
     "user-review",
     "context-check-pre-review",
@@ -409,21 +442,22 @@ def create_plan_all_workflow(
 
             description = task_def.description
             bridge_ref = f"{plugin_root}/references/discovery-bridge.md"
+            use_bridge = not is_first or _has_discovery_artifacts(discovery_findings)
 
-            if not is_first and task_id in {"research-decision", "execute-research"}:
+            if use_bridge and task_id in {"research-decision", "execute-research"}:
                 description = (
                     f"**Reference:** {bridge_ref}\n\n"
                     f"Review discovery findings from {discovery_findings}. "
                     "Follow discovery-bridge.md protocol: detect artifacts, "
                     "ingest findings (max 5), research gaps only."
                 )
-            elif not is_first and task_id == "detailed-interview":
+            elif use_bridge and task_id == "detailed-interview":
                 description = (
                     f"**Reference:** {bridge_ref}\n\n"
                     f"Read discovery interview from {discovery_findings}/interview.md. "
                     "Extract phase-relevant Q&A. Do NOT conduct a new interview."
                 )
-            elif not is_first and task_id == "save-interview":
+            elif use_bridge and task_id == "save-interview":
                 description = (
                     "Write discovery-derived interview to claude-interview.md. "
                     "Add header noting this is derived from discovery interview."
@@ -493,8 +527,9 @@ def create_autonomous_workflow(
 
             description = task_def.description
             bridge_ref = f"{plugin_root}/references/discovery-bridge.md"
+            use_bridge = not is_first or _has_discovery_artifacts(discovery_findings)
 
-            if not is_first and task_id in {"research-decision", "execute-research"}:
+            if use_bridge and task_id in {"research-decision", "execute-research"}:
                 description = (
                     f"**Reference:** {bridge_ref}\n\n"
                     f"Review discovery findings from {discovery_findings}. "
@@ -502,7 +537,8 @@ def create_autonomous_workflow(
                     "ingest findings (max 5), research gaps only."
                 )
             if task_id == "detailed-interview":
-                if is_first:
+                if is_first and not _has_discovery_artifacts(discovery_findings):
+                    # No discovery available — use self-interview for autonomous mode
                     description = (
                         "SELF-INTERVIEW: Launch two subagents — one as interviewer "
                         "(reads interview-protocol.md, asks probing questions about "
@@ -517,7 +553,7 @@ def create_autonomous_workflow(
                         "Extract phase-relevant Q&A. Do NOT conduct a new interview."
                     )
             if task_id == "save-interview":
-                if is_first:
+                if is_first and not _has_discovery_artifacts(discovery_findings):
                     description = (
                         "Save the self-interview transcript to claude-interview.md. "
                         "The interview was conducted by subagents, not a human."
@@ -535,10 +571,12 @@ def create_autonomous_workflow(
                 depends_on=step_deps,
             )
 
-            # Pre-close human-interactive steps (but NOT interview — handled by self-interview)
-            if task_id in _HUMAN_INTERACTIVE_STEPS:
-                reason = "Skipped: autonomous mode (no human review)"
-                tracker.close(namespaced_id, reason)
+            # Human-interactive steps are NOT pre-closed here. Pre-closing
+            # breaks the linear dependency chain: if user-review (step 15) is
+            # closed at creation, apply-tdd (step 16) appears ready even though
+            # generate-plan (step 12) hasn't run yet. Instead, SKILL.md
+            # instructions tell the agent to auto-close these when they become
+            # the ready step in autonomous mode.
 
             prev_step_id = namespaced_id
 

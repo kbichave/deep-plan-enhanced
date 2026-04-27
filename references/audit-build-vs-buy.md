@@ -41,6 +41,26 @@ Search categories (use CURRENT YEAR in all queries, search in priority order):
    - "arxiv {capability} {technique}"
 ```
 
+### 1b. VERIFICATION — Confirm each candidate exists and is maintained
+
+For each candidate found in Step 1:
+- Visit the PyPI/npm/crates.io page (WebFetch the registry URL)
+- Confirm GitHub/repository URL resolves
+- Check last release date (must be within 18 months for "maintained" status)
+- Confirm license compatibility with the project
+
+If a package cannot be verified, label it with **UNVERIFIED** in the evaluation heading.
+
+### 1c. ALTERNATIVES — Ensure breadth of evaluation
+
+- `"{primary_candidate} vs alternatives {current_year}"`
+- `"{capability} comparison {language} {current_year}"`
+- Minimum 2 verified alternatives before making a recommendation
+
+### 1d. Document Search Queries
+
+Every build-vs-buy file must end with a `### Search Queries Used` section listing all WebSearch queries executed during research.
+
 ### 2. Evaluate Each Option
 
 For every viable option found (aim for 2-4 options + build-custom):
@@ -69,7 +89,17 @@ For every viable option found (aim for 2-4 options + build-custom):
 - {dependency risk, breaking changes, vendor lock-in, license compatibility}
 
 **Fits our stack:** {Yes / Partial / No} — {why}
+
+#### Verification Checklist
+- [ ] Package exists on registry: {registry_url}
+- [ ] Repository URL verified: {github_url}
+- [ ] Last release date: {YYYY-MM-DD} (within 18 months: Yes/No)
+- [ ] License: {license_name} (compatible: Yes/No)
+- [ ] Monthly downloads: {count or "not available"}
+- [ ] Search queries documented in "Search Queries Used" section
 ```
+
+If any checkbox cannot be confirmed, the package MUST be labeled **UNVERIFIED** in its heading.
 
 ### 3. Evaluate Build Custom
 

@@ -11,6 +11,99 @@ The interview has three jobs:
 
 The tool should be SMARTER than the user about what's available in the ecosystem. After deep research (step 5), it knows what competitors do, what packages exist, what academic research says. The interview surfaces this knowledge to expand scope.
 
+**Default style:** the **grill-me** sequential walk (see
+`skills/grill-me/SKILL.md`). Every question carries your recommended
+answer drawn from the research findings; the user accepts, redirects,
+or asks for context. Each question resolves one decision-tree branch
+before the next is opened. This is on by default — there is no flag,
+no opt-in.
+
+---
+
+## Round 0: Premise Challenge
+
+**Skip this round if:** `--no-reframe` flag is set, auto mode (no human), or the spec contains >5 concrete file paths/function signatures (indicating the user knows exactly what they want).
+
+### Step 1: Restate the User's Framing
+
+Read the initial spec or objective. Distill into 2-3 sentences:
+
+```
+"You've described this as: [summary of user's ask].
+Your goal appears to be: [inferred goal]."
+```
+
+### Step 2: Surface Implicit Premises
+
+Extract 3-5 premises that are implied but not stated. Sources:
+- **The spec itself:** assumptions about architecture, scale, timeline, technology choices
+- **`analysis-data.yaml`** (if available): empirical data that may contradict the approach
+
+Example premises:
+- "The existing test suite is sufficient to safely refactor" (but test-to-code ratio is 0.08)
+- "This module is stable enough to extend" (but git churn shows 47 changes in 6 months)
+- "The current architecture can support this feature" (but lint violations suggest structural problems)
+
+### Step 3: Challenge Premises Contradicted by Evidence
+
+For each premise where `analysis-data.yaml` provides counter-evidence:
+
+```
+Premise: [stated or implied assumption]
+Evidence: [data from analysis-data.yaml]
+Challenge: [why this premise may be wrong and what it means]
+```
+
+**Only challenge premises with evidence.** Speculation without data is noise, not a challenge.
+
+If `analysis-data.yaml` is missing, skip this step and note: "No empirical data available for evidence-based challenges."
+
+### Step 4: Propose Reframing (If Warranted)
+
+If challenged premises significantly change the picture:
+```
+"Based on this evidence, you might actually need [reframed problem]
+rather than [original framing]. This changes the approach because [reason]."
+```
+
+If no premises are significantly challenged: "Your framing looks solid based on the evidence. Let's proceed."
+
+### Step 5: Generate Implementation Alternatives
+
+Present 2-3 approaches regardless of whether reframing occurred:
+
+| Approach | Description | Human Effort | CC Effort | Risk |
+|----------|-------------|--------------|-----------|------|
+| A (recommended) | 1-2 sentences | S/M/L | S/M/L | What could go wrong |
+| B | 1-2 sentences | S/M/L | S/M/L | What could go wrong |
+
+Mark the recommended approach (best risk/effort ratio).
+
+**Effort scale:** S = hours to 1 day / minutes to 1 hour CC. M = days to 1 week / hours to 1 day CC. L = weeks+ / days to 1 week CC.
+
+### Round 0 Output Format
+
+Write to the interview transcript:
+
+```markdown
+## Round 0: Premise Challenge
+
+**User's framing:** [summary]
+
+**Implicit premises:**
+1. [premise] — Confirmed / Challenged / Unverifiable
+2. [premise] — ...
+
+**Evidence-based challenges:**
+- [challenge with data citation]
+
+**Reframing:** [proposed reframing or "None — framing is sound"]
+
+**Alternatives:**
+| Approach | Description | Human Effort | CC Effort | Risk |
+|----------|-------------|...
+```
+
 ---
 
 ## Round 1: Present Findings + Expand Scope

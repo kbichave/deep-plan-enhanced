@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
+from lib.context_extraction import extract_section_contexts
 from lib.deepstate import DeepStateTracker
 from lib.sections import check_section_progress
 from lib.workflow import create_section_issues
@@ -88,6 +89,14 @@ def generate_sections(
         planning_dir=str(planning_dir),
         plugin_root=str(plugin_root) if plugin_root else "",
     )
+
+    # Extract per-section context files (reduces section-writer token usage by 80-90%)
+    try:
+        extract_section_contexts(planning_dir, defined)
+    except Exception as e:
+        # Context extraction failure should not block section issue creation
+        import logging
+        logging.getLogger(__name__).warning("Context extraction failed: %s", e)
 
     # Close issues for sections that already have files on disk
     for section_name in completed:

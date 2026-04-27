@@ -211,6 +211,6 @@ def derive_destination_from_path(prompt_file_path: str) -> tuple[str, str]:
     if not stem.endswith("-prompt"):
         raise ValueError(f"Expected prompt filename to end with '-prompt', got: {stem}")
 
-    filename = stem.replace("-prompt", "") + ".md"  # "section-01-foundation.md"
+    filename = stem.removesuffix("-prompt") + ".md"  # "section-01-foundation.md"
 
     return sections_dir, filename

@@ -2,6 +2,22 @@
 
 The interview runs directly in this skill (not subagent) because `AskUserQuestion` only works in main conversation context.
 
+## Premise Challenge (Before Main Interview)
+
+**Skip if:** `--no-reframe` flag is set, auto mode, or spec has >5 concrete file paths (user knows exactly what they want).
+
+Before gathering requirements, challenge the user's framing:
+
+1. **Restate:** Summarize the user's ask in 2-3 sentences
+2. **Surface premises:** Identify 3-5 assumptions implied by the spec
+3. **Challenge with evidence:** If `analysis-data.yaml` exists, cite data that contradicts premises (e.g., low test coverage, high file churn, contributor concentration)
+4. **Reframe if warranted:** Propose an alternative framing if evidence is strong
+5. **Present alternatives:** Show 2-3 implementation approaches with effort estimates (S/M/L for human and CC effort)
+
+If no empirical data available, surface premises from the spec text alone and still present alternatives.
+
+---
+
 ## Context
 
 The interview should be informed by:
@@ -22,23 +38,52 @@ If research was done, use it to:
 
 ## Technique
 
-- Use AskUserQuestion with focused questions (2-4 per round)
-- Ask open-ended questions, not yes/no
-- Don't ask obvious questions already in spec
-- Dig deeper when answers reveal complexity
-- Summarize periodically to confirm understanding
+The default style is the **grill-me** sequential walk (vendored from
+`skills/grill-me/SKILL.md`). It is on by default — no flag, no opt-in.
+
+1. **One question at a time.** Resolve the answer to the current
+   decision-tree branch before opening the next branch. Do not batch
+   questions; the user does not have a queue.
+2. **Always offer a recommended answer.** Each question carries your
+   best inference from the codebase scan and prior conversation. The
+   user accepts, redirects, or asks for context. Never ask without an
+   opinion.
+3. **Walk the decision tree.** Map dependencies between choices ahead
+   of time — pick the upstream decision first so downstream questions
+   are well-formed. (Choosing an auth library before deciding session
+   storage; choosing a target language before deciding a test runner.)
+4. **Consult the codebase directly when possible.** If a question can
+   be answered by reading a file, do that instead of asking.
+5. **Stop when every branch is resolved.** Not earlier, not later. The
+   transcript should leave no live question.
+
+`AskUserQuestion` is still used for branches that require user choice
+(2–4 options each). When the next branch is genuinely binary, ask in
+free-form text rather than synthesising option lists.
 
 ## Example Questions
 
-**Good questions:**
-- "What happens when X fails? Should we retry, log, or surface to user?"
-- "Are there existing patterns in the codebase for Y that we should follow?"
-- "What's the expected scale - dozens, thousands, or millions of Z?"
+Each example carries the question and the recommended answer the
+interviewer would lead with. This is the default shape for every
+question in the interview.
 
-**Bad questions (too vague):**
-- "Anything else?"
-- "Is that all?"
-- "Do you have any other requirements?"
+**Good questions (with recommended answer):**
+- "What happens when the upstream API times out? **Recommended:** retry
+  twice with exponential backoff, then surface a typed error — the
+  codebase already uses `httpx.AsyncClient` with timeout handling at
+  `src/clients/base.py:42`."
+- "What test runner — pytest or unittest? **Recommended:** pytest;
+  `pyproject.toml` already configures it and the repo has 600+ tests
+  using its fixtures."
+- "Expected scale — dozens, thousands, or millions of records?
+  **Recommended:** thousands; the existing batch loader caps at 5k
+  rows per call (see `scripts/lib/loader.py`)."
+
+**Bad questions:**
+- "Anything else?" — no branch resolved
+- "Is that all?" — no branch resolved
+- "Do you have any other requirements?" — no branch resolved
+- Any question without a recommended answer
 
 ## When to Stop
 

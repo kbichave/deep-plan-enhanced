@@ -16,7 +16,31 @@ Read `{planning_dir}/scan-summary.md` (written by Quick Scan). Extract:
 
 Also check `{planning_dir}/objective.md` if it exists (from inline prompt auto-spec).
 
-## Step 2: Check for Prior Research (MemPalace, if available)
+## Step 2: Read Empirical Data
+
+Read `{planning_dir}/analysis-data.yaml` if it exists. This file is produced by the `empirical-data-collection` step. **If the file is missing, skip this step entirely** — no error, no warning. Topic enumeration works without it (fallback to perspective-only mode).
+
+Extract empirical signals and generate targeted questions:
+
+| Signal | Condition | Priority | Example Questions |
+|--------|-----------|----------|-------------------|
+| Dependency vulnerabilities | audit tool finds issues | 1 (highest) | "What known vulnerabilities exist in dependencies?" / "Is there a dependency update policy?" |
+| Zero tests | test inventory returns 0 items | 2 | "Why are there no tests?" / "What is the testing strategy?" |
+| Low test-to-code ratio | ratio < 0.3 | 3 | "What areas lack test coverage?" / "What is the test-writing convention?" |
+| High file churn | Any file with >20 changes in window | 4 | "Why does `<file>` change so frequently? Is it a god module?" |
+| Contributor concentration | Top contributor >80% of commits | 5 | "What is the bus factor for this project?" / "Is knowledge siloed?" |
+| High lint violations | >=50 total violations | 6 | "What code quality patterns are most prevalent?" / "Is there a linting policy?" |
+| Type errors | mypy/tsc reports errors | 7 | "How is type safety enforced?" / "Are type errors tracked or ignored?" |
+
+**Rules:**
+- Generate 3-8 empirical questions when data is available
+- Each signal produces at most 2-3 questions
+- Cap at 8 total empirical questions (stop after cap even if more signals fire)
+- Process signals in priority order above
+- Tag every empirical question with `source: empirical`
+- Thresholds are guidance, not hard rules — use judgment for borderline cases
+
+## Step 3: Check for Prior Research (MemPalace, if available)
 
 If the `mempalace_search` MCP tool is available:
 1. Call `mempalace_search` with 2–3 key terms from the project domain (e.g. "authentication Python API")
@@ -26,54 +50,48 @@ If the `mempalace_search` MCP tool is available:
 
 This avoids re-researching what you already know from other projects.
 
-## Step 3: Simulate Three Perspectives
+## Step 3.5: Detect Project Domain
 
-Generate topic questions from three distinct viewpoints. Each perspective asks different questions — their union becomes the topic manifest.
+Using data from Steps 1-2, classify the project domain to select appropriate expert perspectives.
 
-### Perspective 1: Security Auditor
-Asks: What can go wrong? What is exposed?
-- Authentication and authorization mechanisms
-- Session management and token handling
-- Input validation and injection vectors (SQL, command, XSS)
-- Secrets management (hardcoded credentials, env vars, vault)
-- Dependency vulnerabilities (known CVEs)
-- Data encryption at rest and in transit
-- Audit logging and access trails
-- Path traversal and file handling risks
+### Signal Table
 
-### Perspective 2: New Engineer Onboarding
-Asks: How do I understand this system?
-- Project structure and entry points
-- Data model and database schema
-- Core business logic and domain entities
-- API surface (internal and external)
-- Configuration management
-- Local development setup
-- Testing infrastructure and coverage
-- Error handling and logging conventions
-- Background jobs and async processing
-- Inter-service communication patterns
+| Signal | Domain | Example Indicators |
+|--------|--------|--------------------|
+| ML frameworks in dependencies | `ml-pipeline` | torch, tensorflow, sklearn, xgboost, mlflow, wandb |
+| dbt project structure | `data-warehouse` | `dbt_project.yml`, `models/*.sql`, Snowflake/BigQuery refs |
+| Frontend framework in package.json | `web-frontend` | react, vue, angular, svelte, next |
+| HTTP server framework | `web-api` | FastAPI, Flask, Django, Express, route definitions |
+| Infrastructure-as-Code files | `infrastructure` | `.tf` files, `k8s/`, `terraform/`, Pulumi, CloudFormation |
+| CLI entry point with arg parsing | `cli-tool` | argparse, click, clap, `console_scripts`, `bin/` |
+| CI/CD pipelines as primary artifacts | `devops-platform` | `.github/workflows/`, `Jenkinsfile`, minimal app code |
 
-### Perspective 3: Product Manager / Operator
-Asks: How does this run in production? What breaks?
-- Deployment pipeline and environments
-- Observability: metrics, logging, alerting, tracing
-- Performance characteristics and bottlenecks
-- Scalability constraints and known limits
-- Feature flag / rollout infrastructure
-- SLA/SLO definitions and breach handling
-- Operational runbooks and incident process
-- Data retention and backup policies
-- User-facing error handling and recovery
+### Detection Algorithm
 
-## Step 4: Build the Manifest
+1. Parse signals from `scan-summary.md` and `analysis-data.yaml`
+2. Match against the signal table — each match votes for a domain
+3. 2+ matching signals → select domain with `confidence: high`
+4. 1 matching signal → select with `confidence: medium`
+5. No matches or tie → fall back to `default` with `confidence: low`
+6. Record `detected_domain` and `domain_confidence` for Steps 4 and 6
+
+## Step 4: Load Domain Perspectives
+
+1. Using `detected_domain` from Step 3.5, load `{plugin_root}/references/perspectives/{detected_domain}.md`
+2. The file contains 3 expert perspectives, each with 8-12 domain-specific questions
+3. Generate topic questions from the loaded perspectives — each perspective's questions feed into Step 5's manifest building
+4. If the perspective file is missing, fall back to `{plugin_root}/references/perspectives/default.md`
+
+The `default.md` file contains the original Security Auditor, New Engineer, and Product Manager perspectives, so projects that don't match a specific domain get identical behavior to the previous version.
+
+## Step 5: Build the Manifest
 
 1. Collect all questions from all three perspectives
 2. Group similar questions under a single topic (dedup)
 3. Assign each topic:
    - `id`: `rt-NN` (two-digit, e.g. `rt-01`)
    - `topic`: short descriptive name (3–6 words)
-   - `category`: one of `architecture | data-model | api | security | performance | testing | observability | dependencies | deployment`
+   - `category`: one of `architecture | data-model | api | security | performance | testing | observability | dependencies | deployment | ubiquitous-language`
    - `priority`: `high` (core to identifying gaps), `medium` (supporting), `low` (nice-to-know)
    - `questions`: 2–4 specific questions the research agent must answer
    - `status`: `pending`
@@ -81,7 +99,40 @@ Asks: How does this run in production? What breaks?
 
 Target **12–20 topics** for a typical project. Fewer for tiny projects, more for large distributed systems.
 
-## Step 5: Write research-topics.yaml
+### Always-on: ubiquitous-language
+
+Every audit run includes a topic with `category: ubiquitous-language`.
+This is not gated on domain detection — it is cheap and the value
+compounds across runs. The topic glues to:
+
+* `skills/ubiquitous-language/SKILL.md` for the extraction approach
+* `scripts/lib/glossary.py` (`extract_terms`, `diff_merge`) for the
+  mechanical scan and merge
+* The `vault-curator` subagent for persistence (`<vault>/glossary/<slug>/`
+  when the vault is configured, otherwise
+  `~/.claude/projects/<slug>/memory/ubiquitous-language.md`)
+
+Topic shape:
+
+```yaml
+- id: rt-NN
+  topic: "Ubiquitous Language"
+  category: ubiquitous-language
+  priority: medium
+  questions:
+    - "What domain nouns appear repeatedly in code, dbt models, schema YAML, and class names?"
+    - "Which terms have multiple definitions in different parts of the codebase (conflict candidates)?"
+    - "Which terms are likely shared with other projects in this user's portfolio (promotion candidates)?"
+  status: pending
+  findings_file: null
+```
+
+The `audit-doc-writer` agent assigned to this topic must call
+`scripts.lib.glossary.extract_terms` (via Bash) on the repository, then
+diff-merge into the destination chosen by the curator. Do not rewrite
+existing definitions — flag conflicts and let the user resolve them.
+
+## Step 6: Write research-topics.yaml
 
 Write to `{planning_dir}/research-topics.yaml`:
 
@@ -89,10 +140,13 @@ Write to `{planning_dir}/research-topics.yaml`:
 metadata:
   project: <project name from scan-summary>
   generated: <ISO date>
+  detected_domain: <domain from Step 3.5, e.g. "ml-pipeline" or "default">
+  domain_confidence: <"high", "medium", or "low">
   perspectives:
-    - security_auditor
-    - new_engineer
-    - product_manager
+    - <perspective_1_name from loaded file>
+    - <perspective_2_name from loaded file>
+    - <perspective_3_name from loaded file>
+  empirical_signals: 0    # number of signals that fired, 0 if no data
   total: <N>
   covered: 0
   coverage_pct: 0

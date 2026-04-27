@@ -60,10 +60,13 @@ def test_skill_md_has_tracker_close(skill_content):
     assert "tracker.close(" in skill_content
 
 
-def test_skill_md_is_under_300_lines(skill_content):
-    """Unified SKILL.md replaces 5 skills — budget is 300 lines."""
+def test_skill_md_is_under_budget(skill_content):
+    """Unified SKILL.md budget. Originally 300 when /deep replaced 5
+    skills; raised to 350 to absorb the plan-all, auto, mempalace,
+    experience, and integration wiring that landed since. Detailed
+    workflows live under references/, not inline."""
     lines = skill_content.split("\n")
-    assert len(lines) <= 300, f"SKILL.md has {len(lines)} lines, max is 300"
+    assert len(lines) <= 350, f"SKILL.md has {len(lines)} lines, max is 350"
 
 
 def test_frontmatter_preserved(skill_content):

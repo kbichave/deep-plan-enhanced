@@ -35,6 +35,12 @@ Parse JSON output. Store `plugin_root` and map `review_available` to `review_mod
 
 If `valid == false`: show errors and stop.
 
+### 1a. Check & Initialize Obsidian Vault
+
+Read `references/integration-protocol.md` §1 and execute the vault
+resolution + first-run prompt described there. Sets `vault_available`
+in the session state.
+
 ### 1b. Check & Initialize Mempalace
 
 1. Test if the `mempalace` MCP is connected by calling `mcp__mempalace__mempalace_status`.
@@ -99,6 +105,27 @@ If mempalace IS available: read `references/experience-protocol.md` and execute 
 3. Validate: `{planning_dir}/claude-plan.md`, `{planning_dir}/sections/index.md`, `{planning_dir}/.deepstate/state.json` must all exist
 
 ---
+
+## Skill-aware Routing (every mode)
+
+Between major workflow phases, follow `references/integration-protocol.md` §2:
+invoke the `skill-router` subagent (see `agents/skill-router.md`) and
+honour its `auto_invoked` / `prompted` / `skipped` lists. The protocol
+file contains the context-block schema, side-effect demotion rules,
+and the `--no-skill-routing` opt-out.
+
+## Architecture-audit prompt (plan + implement)
+
+Follow `references/integration-protocol.md` §3:
+
+* `/deep plan`: run the audit between research and interview; on
+  `result.total > 0` ask whether to fold one candidate into the plan;
+  invoke `Skill(improve-codebase-architecture)` on accept.
+* `/deep implement`: warn on per-section overlap with audit candidates;
+  default is narrow scope.
+
+In `/deep auto` mode the prompts are skipped; the audit results are
+still written for later reference.
 
 ## Workflow Loop
 
@@ -281,6 +308,14 @@ If a section fails quality gates after 3 attempts (3-strike rule), consult the s
 **3-strike rule:** Same error 3 times → ask user (interactive) or log and continue with rollback (auto mode).
 
 ---
+
+## End-of-Mode Wrap-Up: vault-curator
+
+After a mode reaches its terminal step (`output-summary` for
+discovery / plan / plan-all / auto, `final-verification` for implement),
+follow `references/integration-protocol.md` §4: invoke the
+`vault-curator` subagent and honour the routing decisions it returns.
+Graceful degrade when `vault_available = false`.
 
 ## Guardrails
 

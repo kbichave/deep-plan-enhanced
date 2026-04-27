@@ -1,5 +1,35 @@
 # Plan Writing Guidelines
 
+## Output Compression
+
+All intermediate artifacts use compressed prose. Token budget is the primary constraint.
+
+**Rules (apply to claude-spec.md, claude-research.md, claude-plan.md):**
+- Fragments OK. Drop section-intro sentences ("This section describes..." → just the content).
+- Bullets > paragraphs for 3+ items.
+- Tables > bullets for comparisons.
+- Max 15 words per prose sentence.
+- No hedging ("might", "could potentially", "worth noting", "it's important to").
+- No filler transitions ("Additionally", "Furthermore", "In summary").
+
+**Exception:** `claude-interview.md` keeps full Q&A fidelity — compress nothing.
+
+### Structured Spec Format
+
+`claude-spec.md` uses this header block instead of prose introduction:
+
+```markdown
+**Goal:** <one sentence, max 20 words>
+**Scope in:** <bullet list>
+**Scope out:** <bullet list>
+**Constraints:** <bullet list>
+**Key decisions:** <`Decision: Choice (alternative rejected, reason)`>
+```
+
+Then free-form sections for requirements and context. This saves ~40% vs prose intro.
+
+---
+
 ## What is the Implementation Plan?
 
 The implementation plan (`claude-plan.md`) is the central artifact of deep-plan. It's a self-contained prose document that describes **what** to build, **why**, and **how** - in enough detail that an engineer or LLM can implement it without guessing.
@@ -43,6 +73,28 @@ The plan must be **fully self-contained**. An engineer or LLM with NO prior cont
 ## The Code Budget
 
 LLMs instinctively write code when they see a feature request. This produces 25k+ token "plans" that are actually implementations - wasting context and doing `deep-implement`'s job.
+
+## Module Design Comes First
+
+Adopted from `skills/improve-codebase-architecture/SKILL.md` and
+`skills/tdd/deep-modules.md`. Before listing sections, sketch the
+**deep modules** the implementation introduces:
+
+* Each module has a *simple, stable* interface and a *substantial*
+  implementation behind it.
+* Validate the module list with the user before splitting into
+  sections. Sections should be subordinate to modules — a section that
+  produces an awkward module shape signals a planning miss.
+* Avoid **shallow** modules: a public interface nearly as wide as its
+  implementation is a smell. Fold or deepen.
+* Avoid **hypothetical seams**: do not introduce an abstract base or
+  Protocol with a single concrete implementation unless the second
+  adapter is in scope for this plan.
+
+The plan body should describe modules in terms of *external behavior*,
+not file paths or code. File paths are appropriate inside individual
+sections; in the plan body they rot quickly as the implementation
+evolves.
 
 ## What Code IS Appropriate
 

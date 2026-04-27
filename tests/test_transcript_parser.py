@@ -385,3 +385,15 @@ class TestDeriveDestinationFromPromptPath:
         prompt_path = "/Users/foo/planning/sections/.prompts/section-01-foundation.md"
         with pytest.raises(ValueError, match="-prompt"):
             derive_destination_from_path(prompt_path)
+
+    def test_handles_section_name_containing_prompt(self):
+        """Regression: section names containing 'prompt' must not have interior occurrences stripped.
+
+        str.replace('-prompt', '') removes ALL occurrences, corrupting names like
+        'section-05-prompt-builder' into 'section-05--builder'. The fix uses
+        str.removesuffix('-prompt') which only removes the trailing suffix.
+        """
+        prompt_path = "/path/to/sections/.prompts/section-05-prompt-builder-prompt.md"
+        sections_dir, filename = derive_destination_from_path(prompt_path)
+        assert filename == "section-05-prompt-builder.md"
+        assert sections_dir == "/path/to/sections"
